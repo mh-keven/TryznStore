@@ -227,7 +227,7 @@ function renderProducts() {
     const pct = hasDiscount ? Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100) : 0;
     const isVideo = p.mediaType === 'video' || (typeof p.image === 'string' && (p.image.startsWith('data:video') || p.image.match(/\.(mp4|webm)($|\?)/i)));
     return `
-      <article class="product-card">
+      <article class="product-card" data-product-view="${esc(p.id)}" tabindex="0" role="link" aria-label="View ${esc(p.name)} details">
         <div class="product-thumb">
           ${isVideo ? `
             <video src="${esc(p.image)}" autoplay loop muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>
@@ -263,6 +263,98 @@ function renderProducts() {
       </article>
     `;
   }).join('');
+}
+
+let currentDetailProductId = null;
+let recommendationTimer = null;
+
+function productCardMarkup(p, compact = false) {
+  const hasDiscount = p.oldPrice && p.oldPrice > p.price;
+  const pct = hasDiscount ? Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100) : 0;
+  return `<article class="${compact ? 'recommend-product-card' : 'product-card'}" data-product-view="${esc(p.id)}" tabindex="0" role="link" aria-label="View ${esc(p.name)} details">
+    <div class="${compact ? 'recommend-product-image' : 'product-thumb'}"><img src="${esc(p.image)}" alt="${esc(p.name)}" loading="lazy">${p.badge ? `<span class="recommend-badge">${esc(p.badge)}</span>` : ''}</div>
+    <div class="${compact ? 'recommend-product-info' : 'product-details'}"><span class="product-cat">${esc(p.category)}</span><h3 class="product-title">${esc(p.name)}</h3><div class="product-rating">★★★★★ <span>(${p.reviews || 24})</span></div><div class="product-price-row"><span class="curr-price">${formatMoney(p.price)}</span>${hasDiscount ? `<span class="old-price">${formatMoney(p.oldPrice)}</span>` : ''}</div><button type="button" class="btn-add" data-view-add="${esc(p.id)}">Add to Cart</button></div>
+  </article>`;
+}
+
+function openProductPage(id) {
+  const p = productsList.find(x => x.id === id);
+  if (!p) return;
+  currentDetailProductId = id;
+  document.body.classList.remove('checkout-page-open');
+  document.body.classList.add('product-page-open');
+  renderProductDetail();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderProductDetail() {
+  const p = productsList.find(x => x.id === currentDetailProductId);
+  const target = $('#productDetailContent');
+  if (!p || !target) return;
+  const hasDiscount = p.oldPrice && p.oldPrice > p.price;
+  const pct = hasDiscount ? Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100) : 0;
+  target.innerHTML = `<div class="product-detail-layout">
+    <div class="product-detail-gallery"><div class="product-detail-main-image"><img src="${esc(p.image)}" alt="${esc(p.name)}"></div><div class="product-gallery-caption">${p.badge ? `<span class="detail-badge">${esc(p.badge)}</span>` : ''}<span>Product code: ${esc(p.id.toUpperCase())}</span></div></div>
+    <div class="product-detail-info"><div class="detail-category">${esc(p.category)}${p.subcategory ? ' / ' + esc(p.subcategory) : ''}</div><h1>${esc(p.name)}</h1><div class="detail-rating"><span>★★★★★</span> ${Number(p.rating || 4.8).toFixed(1)} <span class="detail-reviews">(${p.reviews || 24} reviews)</span></div><div class="detail-price-row"><strong>${formatMoney(p.price)}</strong>${hasDiscount ? `<del>${formatMoney(p.oldPrice)}</del><span class="detail-discount">${pct}% OFF</span>` : ''}</div><p class="detail-description">${esc(p.description || 'A carefully selected product from Tryzn Store. Designed for everyday use with quality and value in mind.')}</p><div class="detail-stock-note">✓ ${p.stock > 0 ? 'Available to order' : 'Check availability'} <span>·</span> Cash on Delivery across Pakistan</div><div class="detail-benefits"><div><span>🚚</span><div><b>Delivery in 2–4 days</b><small>TCS, Leopards or PostEx</small></div></div><div><span>💵</span><div><b>Cash on Delivery</b><small>Pay when your parcel arrives</small></div></div><div><span>🔄</span><div><b>7-day easy returns</b><small>Contact support for assistance</small></div></div></div><div class="detail-actions"><button type="button" class="btn-primary" data-detail-add="${esc(p.id)}">Add to Cart</button><button type="button" class="btn-dark detail-buy-now" data-buy-now="${esc(p.id)}">Buy Now · COD</button></div><button type="button" class="detail-whatsapp" data-wa-order="${esc(p.id)}">Order or ask on WhatsApp</button></div>
+  </div>`;
+  renderRecommendations();
+  if (recommendationTimer) clearInterval(recommendationTimer);
+  recommendationTimer = setInterval(() => {
+    if (document.body.classList.contains('product-page-open')) renderRecommendations();
+    else { clearInterval(recommendationTimer); recommendationTimer = null; }
+  }, 9000);
+}
+
+function renderRecommendations() {
+  const target = $('#productRecommendations');
+  if (!target) return;
+  const pool = productsList.filter(p => p.id !== currentDetailProductId);
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  target.innerHTML = pool.slice(0, 4).map(p => productCardMarkup(p, true)).join('');
+}
+
+function openFullCheckout() {
+  const items = getCartItems();
+  if (!items.length) { showToast('Your cart is empty. Add a product first.', true); openDrawer('cart'); return; }
+  closeDrawer();
+  document.body.classList.remove('product-page-open');
+  document.body.classList.add('checkout-page-open');
+  renderCheckoutPage();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderCheckoutPage() {
+  const saved = storage.get('tryzn_saved_address', {});
+  const u = currentUser || {};
+  const field = (id, value) => { const el = $('#' + id); if (el && value && !el.value) el.value = value; };
+  field('checkoutFullName', saved.name || u.name || '');
+  field('checkoutPhone', saved.phone || u.phone || '');
+  field('checkoutStreet', saved.street || '');
+  field('checkoutLocality', saved.locality || '');
+  field('checkoutProvince', saved.province || '');
+  field('checkoutCity', saved.city || u.city || '');
+  field('checkoutArea', saved.area || '');
+  field('checkoutAddress', saved.notes || u.address || '');
+  if (saved.label) { const radio = document.querySelector(`input[name="checkoutLabel"][value="${saved.label}"]`); if (radio) radio.checked = true; }
+  const items = getCartItems();
+  const totals = getTotals();
+  const packageTarget = $('#checkoutPackageItems');
+  if (packageTarget) packageTarget.innerHTML = items.length ? items.map(({ product: p, qty }) => `<div class="checkout-package-item"><img src="${esc(p.image)}" alt="${esc(p.name)}"><div class="checkout-package-product"><strong>${esc(p.name)}</strong><span>${esc(p.category)}${p.subcategory ? ' · ' + esc(p.subcategory) : ''}</span><small>Qty: <b>${qty}</b></small></div><div class="checkout-package-price"><strong>${formatMoney(p.price * qty)}</strong>${p.oldPrice > p.price ? `<del>${formatMoney(p.oldPrice * qty)}</del>` : ''}</div></div>`).join('') : '<p>Your cart is empty.</p>';
+  const totalsTarget = $('#checkoutTotals');
+  if (totalsTarget) totalsTarget.innerHTML = `<div><span>Items Total (${totals.count} ${totals.count === 1 ? 'item' : 'items'})</span><strong>${formatMoney(totals.subtotal)}</strong></div><div><span>Delivery Fee</span><strong>${totals.isFree ? '<em>FREE</em>' : formatMoney(totals.shipping)}</strong></div><div class="checkout-grand-total"><span>Total <small>VAT included, where applicable</small></span><strong>${formatMoney(totals.total)}</strong></div>`;
+}
+
+function saveCheckoutAddress() {
+  const get = id => ($('#' + id)?.value || '').trim();
+  const label = document.querySelector('input[name="checkoutLabel"]:checked')?.value || 'HOME';
+  const saved = { name: get('checkoutFullName'), phone: get('checkoutPhone'), street: get('checkoutStreet'), locality: get('checkoutLocality'), province: get('checkoutProvince'), city: get('checkoutCity'), area: get('checkoutArea'), notes: get('checkoutAddress'), label };
+  storage.set('tryzn_saved_address', saved);
+  const note = $('#saveAddressNote');
+  if (note) note.textContent = '✓ Delivery details saved on this device.';
+  showToast('Delivery address saved on this device.');
 }
 
 function getCartItems() {
@@ -397,62 +489,70 @@ function openDrawer(view = 'cart') {
 function closeDrawer() { document.body.classList.remove('drawer-open'); }
 function closeModal() { document.body.classList.remove('modal-open'); }
 
-function handleCheckoutSubmit() {
-  const name = ($('#uName').value || '').trim();
-  const phone = ($('#uPhone').value || '').trim();
-  const city = ($('#uCity').value || '').trim();
-  const address = ($('#uAddress').value || '').trim();
-  const err = $('#checkoutErr');
-
-  if (name.length < 2) { err.textContent = 'Please enter your full name.'; return; }
-  if (phone.length < 10) { err.textContent = 'Please enter a valid mobile number.'; return; }
-  if (address.length < 5) { err.textContent = 'Please enter your complete address.'; return; }
+function handleCheckoutSubmit(mode = 'drawer') {
+  const full = mode === 'full';
+  const val = id => (($( '#' + id) || {}).value || '').trim();
+  const name = val(full ? 'checkoutFullName' : 'uName');
+  const phone = val(full ? 'checkoutPhone' : 'uPhone');
+  const city = val(full ? 'checkoutCity' : 'uCity');
+  const err = $(full ? '#fullCheckoutError' : '#checkoutErr');
+  const street = full ? val('checkoutStreet') : '';
+  const locality = full ? val('checkoutLocality') : '';
+  const province = full ? val('checkoutProvince') : '';
+  const area = full ? val('checkoutArea') : '';
+  const notes = val(full ? 'checkoutAddress' : 'uAddress');
+  const label = full ? (document.querySelector('input[name="checkoutLabel"]:checked')?.value || 'HOME') : '';
+  const address = full ? [street, locality, area, notes, label ? `Address label: ${label}` : '', province].filter(Boolean).join(', ') : notes;
+  if (err) err.textContent = '';
+  if (name.length < 2) { if (err) err.textContent = 'Please enter your full name.'; return; }
+  if (phone.replace(/\D/g, '').length < 10) { if (err) err.textContent = 'Please enter a valid mobile number.'; return; }
+  if (!city) { if (err) err.textContent = 'Please choose your city.'; return; }
+  if (full && (!province || street.length < 3 || locality.length < 2)) { if (err) err.textContent = 'Please complete your street address, locality, province and city.'; return; }
+  if (address.length < 5) { if (err) err.textContent = 'Please enter your complete address.'; return; }
 
   const totals = getTotals();
   const items = getCartItems();
+  if (!items.length) { if (err) err.textContent = 'Your cart is empty. Add a product before placing an order.'; return; }
   const orderId = 'TZ-' + Math.floor(100000 + Math.random() * 900000);
-  
   const order = {
     id: orderId,
     time: new Date().toISOString().replace('T', ' ').slice(0, 16),
-    name,
-    phone,
-    city,
-    address,
+    name, phone, city, province, area, street, locality, address, addressLabel: label,
     items: items.map(i => ({ id: i.product.id, name: i.product.name, qty: i.qty, price: i.product.price })),
-    total: totals.total,
-    status: 'New'
+    subtotal: totals.subtotal, shipping: totals.shipping, total: totals.total, status: 'New'
   };
-
   ordersList.unshift(order);
   storage.set('tryzn_orders', ordersList);
   lastPlacedOrder = order;
-
+  if (full) saveCheckoutAddress();
   cart = {};
   storage.set('tryzn_cart', cart);
   updateCartBadge();
   closeDrawer();
+  document.body.classList.remove('checkout-page-open', 'product-page-open');
   renderAdmin();
-
   showToast('Order #' + orderId + ' received! Opening WhatsApp confirmation...');
   const waMsg = buildWhatsAppMessage(order);
-  setTimeout(() => {
-    window.open('https://wa.me/' + CFG.wa + '?text=' + encodeURIComponent(waMsg), '_blank');
-  }, 1000);
+  setTimeout(() => { window.open('https://wa.me/' + CFG.wa + '?text=' + encodeURIComponent(waMsg), '_blank'); }, 700);
 }
 
 function buildWhatsAppMessage(order) {
-  const isFree = order.total >= 4999;
+  const isFree = (order.subtotal || order.total) >= 4999;
   return `*🇵🇰 NEW COD ORDER - TRYZN STORE PAKISTAN*
 Order ID: ${order.id}
 Customer: ${order.name}
 Phone: ${order.phone}
 City: ${order.city}
+Province: ${order.province || 'N/A'}
+Area: ${order.area || 'N/A'}
+Address label: ${order.addressLabel || 'N/A'}
 Delivery Address: ${order.address}
 
 *Ordered Items:*
 ${order.items.map(i => `• ${i.qty}x ${i.name} (${formatMoney(i.price)})`).join('\n')}
 
+Subtotal: ${formatMoney(order.subtotal || order.total)}
+Delivery Fee: ${order.shipping === 0 ? 'FREE' : formatMoney(order.shipping || 0)}
 *Total (Cash On Delivery):* ${formatMoney(order.total)}
 ${isFree ? '✅ *FREE DELIVERY APPLIED (Above Rs. 4,999)*' : '🚚 Courier Fee: Rs. 200 (Nationwide TCS / Leopards)'}
 
@@ -767,10 +867,37 @@ function openAuth(tab = 'signin') {
 function closeAuth() { document.body.classList.remove('auth-open'); }
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn');
+  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
   if (!t) return;
 
-  if (t.dataset.sub) {
+  if (t.dataset.productView) {
+    if (t.matches('article') || !t.dataset.add) openProductPage(t.dataset.productView);
+  }
+  else if (t.dataset.viewAdd || t.dataset.detailAdd) {
+    const id = t.dataset.viewAdd || t.dataset.detailAdd;
+    modifyCart(id, 1);
+    showToast('Added to your cart.');
+    if (t.dataset.viewAdd) openDrawer('cart');
+  }
+  else if (t.dataset.buyNow) {
+    modifyCart(t.dataset.buyNow, 1);
+    openFullCheckout();
+  }
+  else if (t.id === 'productBackBtn') {
+    document.body.classList.remove('product-page-open');
+    if (recommendationTimer) clearInterval(recommendationTimer);
+    $('#shop').scrollIntoView({ behavior: 'smooth' });
+  }
+  else if (t.id === 'checkoutBackBtn') {
+    document.body.classList.remove('checkout-page-open');
+    openDrawer('cart');
+  }
+  else if (t.id === 'placeFullOrderBtn') handleCheckoutSubmit('full');
+  else if (t.id === 'saveCheckoutAddressBtn') saveCheckoutAddress();
+  else if (t.id === 'applyCheckoutPromo') showToast('No active promotion code is available right now.', true);
+  else if (t.id === 'editCheckoutInfo') { $('#checkoutFullName')?.focus(); $('#fullCheckoutForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  else if (t.dataset.sub) {
+    document.body.classList.remove('product-page-open', 'checkout-page-open');
     activeCategory = t.dataset.cat;
     activeSubcategory = t.dataset.sub;
     renderNav();
@@ -778,6 +905,7 @@ document.addEventListener('click', e => {
     $('#shop').scrollIntoView({ behavior: 'smooth' });
   }
   else if (t.dataset.cat) {
+    document.body.classList.remove('product-page-open', 'checkout-page-open');
     activeCategory = t.dataset.cat;
     activeSubcategory = null;
     renderNav();
@@ -1031,14 +1159,14 @@ document.addEventListener('click', e => {
       showToast('Cover updated for ' + selCat + '!');
     }
   }
-  else if (t.id === 'brandHomeBtn') { activeCategory = 'All'; activeSubcategory = null; renderNav(); renderProducts(); }
+  else if (t.id === 'brandHomeBtn') { document.body.classList.remove('product-page-open', 'checkout-page-open'); activeCategory = 'All'; activeSubcategory = null; renderNav(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   else if (t.id === 'browseBtn') { closeDrawer(); $('#shop').scrollIntoView({ behavior: 'smooth' }); }
   else if (t.id === 'heroShopBtn') { $('#shop').scrollIntoView({ behavior: 'smooth' }); }
   else if (t.id === 'heroWhatsAppBtn' || t.id === 'floatingWaBtn') {
     e.preventDefault();
     window.open('https://wa.me/' + CFG.wa + '?text=' + encodeURIComponent('Assalam-o-Alaikum Tryzn Store! I would like to place an order with Cash on Delivery (Free delivery over Rs. 4,999). Please share available items.'), '_blank');
   }
-  else if (t.id === 'gotoCheckoutBtn') openDrawer('checkout');
+  else if (t.id === 'gotoCheckoutBtn') openFullCheckout();
   else if (t.id === 'backToCartBtn') openDrawer('cart');
   else if (t.id === 'submitOrderBtn') handleCheckoutSubmit();
   else if (t.id === 'directWaCheckoutBtn') {
@@ -1177,6 +1305,7 @@ const searchInput = $('#productSearch');
 if (searchInput) searchInput.addEventListener('input', renderProducts);
 
 document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-product-view]')) { e.preventDefault(); openProductPage(e.target.dataset.productView); }
   if (e.key === 'Escape') {
     closeDrawer();
     closeModal();
@@ -1188,6 +1317,13 @@ document.addEventListener('keydown', e => {
 // Boot Store
 (() => {
   if ($('#regCity')) $('#regCity').innerHTML = '<option value="">Select your city...</option>' + PK_CITIES.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if ($('#checkoutCity')) $('#checkoutCity').innerHTML = '<option value="">Please choose your city</option>' + PK_CITIES.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  const announcements = [...document.querySelectorAll('.top-notice > span')];
+  if (announcements.length) {
+    announcements.forEach((item, index) => { item.classList.toggle('is-active', index === 0); });
+    let announcementIndex = 0;
+    setInterval(() => { announcements[announcementIndex].classList.remove('is-active'); announcementIndex = (announcementIndex + 1) % announcements.length; announcements[announcementIndex].classList.add('is-active'); }, 4000);
+  }
   updateUserUI();
   renderNav();
   renderProducts();
