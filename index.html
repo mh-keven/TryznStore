@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tryzn Store | Original Products & Cash On Delivery Pakistan</title>
+<meta name="description" content="Tryzn Store: Pakistan's trusted domestic online store for premium apparel, tech essentials, and accessories. 100% Cash On Delivery nationwide, Free Delivery over Rs. 4,999, and 7-day hassle-free replacement.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="emerald">
+
+<aside class="top-notice" aria-label="Store Announcements">
+  <span>🚚 <b>Free Delivery</b> on orders above Rs. 4,999</span>
+  <span>•</span>
+  <span>💵 <b>Cash On Delivery</b> Across Pakistan</span>
+  <span>•</span>
+  <span>🔄 <b>7-Day Easy Returns & Exchange</b></span>
+  <span>•</span>
+  <span>⚡ TCS / Leopards / PostEx Fast Dispatch (2-4 Days)</span>
+</aside>
+
+<header>
+  <!-- Tier 1: Logo & Utilities -->
+  <div class="header-top-tier">
+    <div class="header-top-left">
+      <span class="header-badge-tag">Pakistan's Trusted Store</span>
+    </div>
+
+    <!-- Center Elevated Logo -->
+    <a href="#shop" class="brand-link" id="brandHomeBtn" aria-label="Tryzn Store Home">
+      <svg class="brand-logo-svg" viewBox="0 0 470 120" role="img" aria-label="Tryzn Store Logo">
+        <rect x="0" y="10" width="100" height="100" rx="22" fill="var(--primary)"/>
+        <path d="M27 38 H73 M50 38 V80" stroke="#FFFFFF" stroke-width="11" fill="none" stroke-linecap="square"/>
+        <path d="M37 92 H63" stroke="var(--accent)" stroke-width="4.5" stroke-linecap="round"/>
+        <g transform="translate(130,18) scale(0.85)" fill="none" stroke="var(--primary)" stroke-width="9" stroke-linejoin="miter">
+          <path d="M0 4 H56 M28 4 V80"/>
+          <path d="M78 80 V4 H112 Q134 4 134 24 Q134 44 112 44 H78 M108 44 L134 80"/>
+          <path d="M156 4 L184 42 L212 4 M184 42 V80"/>
+          <path d="M234 4 H290 L234 80 H290"/>
+          <path d="M312 80 V4 L368 80 V4"/>
+        </g>
+        <text x="132" y="108" font-family="'Plus Jakarta Sans', sans-serif" font-size="15" font-weight="700" letter-spacing="11" fill="var(--accent)">STORE</text>
+      </svg>
+    </a>
+
+    <!-- Top Right Actions -->
+    <div class="header-top-right">
+      <div class="theme-picker">
+        <select id="themeSelect" class="theme-select" aria-label="Choose Color Scheme">
+          <option value="emerald">Obsidian & Emerald</option>
+          <option value="monochrome">Monochrome Minimal</option>
+          <option value="cobalt">Deep Slate & Cobalt</option>
+        </select>
+      </div>
+
+      <!-- Account / Admin Trigger -->
+      <button class="btn-icon" id="openAuthBtn" title="Account Login" aria-label="Account Login">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span class="user-indicator" id="userIndicatorDot" style="display: none;"></span>
+      </button>
+
+      <!-- Cart Button -->
+      <button id="cartBtn" aria-label="Open Cart">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+        </svg>
+        <span>Cart</span>
+        <span id="cartBadge">0</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tier 2: Category Bar Below Logo with Dropdown Menus -->
+  <div class="header-nav-bar">
+    <nav class="header-nav-inner" id="topNav" aria-label="Product Categories"></nav>
+  </div>
+</header>
+
+<section class="trust-strip" aria-label="Store Guarantees">
+  <div class="trust-inner">
+    <div class="trust-item">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      <div>
+        <strong>Cash On Delivery</strong>
+        <small>Pay only after package arrives</small>
+      </div>
+    </div>
+    <div class="trust-item">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      <div>
+        <strong>100% Original Products</strong>
+        <small>Strict quality check before courier dispatch</small>
+      </div>
+    </div>
+    <div class="trust-item">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      <div>
+        <strong>7-Day Easy Returns</strong>
+        <small>Instant replacement across Pakistan</small>
+      </div>
+    </div>
+    <div class="trust-item">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      <div>
+        <strong>WhatsApp Order Updates</strong>
+        <small>Live courier tracking alerts</small>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero" id="heroSection">
+  <div class="hero-content">
+    <div>
+      <div class="hero-tag">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        New Season Arrival • Cash On Delivery Across Pakistan
+      </div>
+      <h1 id="heroHeading">Effortless Style. Honest Prices. Built On Real Trust.</h1>
+      <p id="heroSubheading">Upgrade your wardrobe and daily essentials with verified original products. Order in 30 seconds and pay cash at your doorstep. Free delivery on orders above Rs. 4,999.</p>
+      <div class="hero-actions">
+        <a href="#shop" class="btn-primary" id="heroShopBtn">
+          Shop All Collections
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+        <button class="btn-outline" id="heroWhatsAppBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          Order on WhatsApp
+        </button>
+      </div>
+    </div>
+
+    <!-- Hero Product Showcase Visuals -->
+    <div class="hero-showcase">
+      <div class="showcase-card-main">
+        <img src="https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?auto=format&fit=crop&w=600&q=80" alt="Textured Knitted Polo" class="showcase-img" id="heroMainImg">
+        <div class="showcase-meta">
+          <span class="showcase-badge">Trending #1</span>
+          <div class="showcase-title">Old Money Knitted Polo</div>
+          <div class="showcase-price">Rs. 2,790 <s>Rs. 3,490</s></div>
+        </div>
+      </div>
+      <div class="showcase-side-column">
+        <div class="showcase-mini-card">
+          <img src="https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=200&q=80" alt="Earbuds">
+          <div class="showcase-mini-info">
+            <b>ANC Wireless Earbuds</b>
+            <span>Rs. 3,990</span>
+          </div>
+        </div>
+        <div class="showcase-mini-card">
+          <img src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=200&q=80" alt="Watch">
+          <div class="showcase-mini-info">
+            <b>Steel Chrono Watch</b>
+            <span>Rs. 5,990</span>
+          </div>
+        </div>
+        <div class="showcase-mini-card">
+          <img src="https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=200&q=80" alt="Tote Bag">
+          <div class="showcase-mini-info">
+            <b>Minimalist Tote Bag</b>
+            <span>Rs. 2,890</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="section-header">
+    <div>
+      <h2>Shop By Collection</h2>
+      <p>Curated domestic categories tailored for high-quality everyday Pakistani living</p>
+    </div>
+  </div>
+  <div class="collections-grid" id="collectionsGrid"></div>
+</section>
+
+<section class="wrap" id="shop">
+  <div class="section-header">
+    <div>
+      <h2 id="catalogTitle">All Products</h2>
+      <p>Hand-inspected, premium quality items available with Cash on Delivery across Pakistan</p>
+    </div>
+  </div>
+
+  <div class="shop-controls">
+    <div class="category-pills" id="filterPills"></div>
+    <div class="search-wrapper">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="search" id="productSearch" placeholder="Search polo, trousers, watch, earbuds..." aria-label="Search products">
+    </div>
+  </div>
+
+  <div class="products-grid" id="productsGrid"></div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-col">
+      <h4>TRYZN STORE PAKISTAN</h4>
+      <p>Tryzn Store is Pakistan’s trusted online destination for premium apparel, tech essentials, and lifestyle accessories.</p>
+      <p>Built with honesty: pay Cash on Delivery after your package arrives via TCS, Leopards, or PostEx.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Shop Categories</h4>
+      <ul class="footer-links" id="footerCats"></ul>
+    </div>
+    <div class="footer-col">
+      <h4>Customer Support</h4>
+      <ul class="footer-links">
+        <li><span>WhatsApp: <b>Direct Chat Available</b></span></li>
+        <li><span>Hours: Mon - Sat (10am - 9pm)</span></li>
+        <li><span>Delivery: 2 to 4 business days</span></li>
+        <li><span>Free Delivery: Orders over Rs. 4,999</span></li>
+        <li><span>Return Policy: 7-day hassle-free replacement</span></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>My Account</h4>
+      <p>Sign in to save your delivery address, track recent orders, and enjoy fast 1-click checkout.</p>
+      <button class="btn-primary" id="footerPortalBtn" style="padding: 8px 16px; font-size: 12.5px; margin-top: 10px;">
+        Sign In / Customer Profile
+      </button>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; 2026 Tryzn Store. All rights reserved. Cash on delivery across Pakistan.</p>
+    <p>Direct WhatsApp Order Fulfillment • Google Sheets Backend</p>
+  </div>
+</footer>
+
+<a href="#" class="floating-wa" id="floatingWaBtn" aria-label="Chat with Support on WhatsApp">
+  <span class="wa-online-dot"></span>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+  <span>Order on WhatsApp</span>
+</a>
+
+<div id="drawerOverlay"></div>
+<aside id="sideDrawer" aria-label="Shopping Cart and Checkout">
+  <div class="drawer-header">
+    <h2 id="drawerHeading">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      Your Shopping Cart
+    </h2>
+    <button class="close-btn" id="closeDrawerBtn" aria-label="Close drawer">&times;</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-footer" id="drawerFooter"></div>
+</aside>
+
+<div id="modalOverlay">
+  <div class="modal-window">
+    <button class="modal-close" id="closeModalBtn" aria-label="Close product view">&times;</button>
+    <div class="modal-grid" id="modalGridContent"></div>
+  </div>
+</div>
+
+<div id="authModal">
+  <div class="auth-box">
+    <div id="authLoggedOutTabs" class="auth-tabs">
+      <button class="auth-tab-btn active" id="tabSignInBtn">Sign In</button>
+      <button class="auth-tab-btn" id="tabRegisterBtn">Create Account</button>
+    </div>
+    
+    <div class="auth-body" id="signInPane">
+      <h3 style="font-size: 17px; margin-bottom: 6px;">Welcome Back</h3>
+      <p style="font-size: 13px; color: var(--ink-muted); margin-bottom: 18px;">Sign in to your account.</p>
+      <div class="form-group">
+        <label for="loginEmail">Email Address</label>
+        <input type="email" id="loginEmail" placeholder="name@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="loginPass">Password</label>
+        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <div class="form-error" id="signInError"></div>
+      <button class="btn-block btn-dark" id="signInSubmitBtn" style="margin-top: 10px;">Sign In</button>
+    </div>
+
+    <div class="auth-body" id="registerPane" style="display: none;">
+      <h3 style="font-size: 17px; margin-bottom: 6px;">Create Account</h3>
+      <p style="font-size: 13px; color: var(--ink-muted); margin-bottom: 16px;">Save your details for instant 1-click checkout.</p>
+      <div class="form-group">
+        <label for="regName">Full Name *</label>
+        <input type="text" id="regName" placeholder="e.g. Ali Ahmed">
+      </div>
+      <div class="form-group">
+        <label for="regEmail">Email Address *</label>
+        <input type="email" id="regEmail" placeholder="yourname@gmail.com">
+      </div>
+      <div class="form-group">
+        <label for="regPass">Password *</label>
+        <input type="password" id="regPass" placeholder="••••••••">
+      </div>
+      <div class="form-group">
+        <label for="regPhone">Mobile / WhatsApp Number *</label>
+        <input type="tel" id="regPhone" placeholder="0300 1234567">
+      </div>
+      <div class="form-group">
+        <label for="regCity">City *</label>
+        <select id="regCity"><option value="">Select your city...</option></select>
+      </div>
+      <div class="form-group">
+        <label for="regAddress">Complete Delivery Address *</label>
+        <textarea id="regAddress" rows="2" placeholder="House #, Street #, Sector / Area"></textarea>
+      </div>
+      <div class="form-error" id="registerError"></div>
+      <button class="btn-block btn-dark" id="regSubmitBtn" style="margin-top: 10px;">Create Account & Save Profile</button>
+    </div>
+
+    <div class="auth-body" id="customerLoggedInView" style="display: none; text-align: center; padding: 24px;">
+      <div style="width: 56px; height: 56px; background: var(--accent-light); color: var(--accent); border-radius: 99px; display: grid; place-items: center; margin: 0 auto 12px;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <h3 id="loggedCustName" style="font-size: 18px;">Welcome back!</h3>
+      <p id="loggedCustEmail" style="color: var(--ink-muted); font-size: 13px; margin: 4px 0 14px;"></p>
+      <button class="btn-block btn-dark" id="userLogoutBtn">Log Out</button>
+    </div>
+
+    <div class="auth-body" id="adminLoggedInView" style="display: none; text-align: center; padding: 24px;">
+      <div style="width: 56px; height: 56px; background: #0B0F19; color: #FFFFFF; border-radius: 99px; display: grid; place-items: center; margin: 0 auto 12px;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      </div>
+      <h3 style="font-size: 18px;">Store Administrator</h3>
+      <p style="color: var(--ink-muted); font-size: 13px; margin: 4px 0 16px;">hshussnain41@gmail.com</p>
+      <button class="btn-block btn-dark" id="openAdminModalFromAuthBtn" style="margin-bottom: 10px;">Open Full Admin Dashboard</button>
+      <button class="btn-block btn-text" id="adminLogoutAuthBtn" style="color: var(--danger);">Log Out Admin</button>
+    </div>
+  </div>
+</div>
+
+<div id="adminModal" role="dialog" aria-modal="true" aria-label="Admin Control Center">
+  <div class="admin-card">
+    <div class="admin-top-bar">
+      <div class="admin-top-left">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span style="font-weight: 800; letter-spacing: 0.05em; font-size: 15px;">TRYZN STORE</span>
+        <span class="admin-badge-tag">Admin Panel</span>
+      </div>
+      <div class="admin-top-actions">
+        <button type="button" class="btn-exit-panel" id="closeAdminBtn" aria-label="Exit Admin Panel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Exit Panel to Store
+        </button>
+      </div>
+    </div>
+
+    <div class="admin-workspace">
+      <!-- Left Sidebar -->
+      <aside class="admin-sidebar" aria-label="Dashboard Navigation">
+        <div class="admin-sidebar-section-title">Store Management</div>
+        <div class="admin-sidebar-nav">
+          <button class="admin-nav-item active" data-atab="orders">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><line x1="1" y1="3" x2="23" y2="3"/><polygon points="10 12 14 12 14 16 10 16"/></svg>
+            <span>Orders & Courier</span>
+            <span class="admin-nav-badge" id="sidePendingCount">0</span>
+          </button>
+          <button class="admin-nav-item" data-atab="categories">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <span>Categories & Menus</span>
+          </button>
+          <button class="admin-nav-item" data-atab="products">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <span>Product Inventory</span>
+          </button>
+          <button class="admin-nav-item" data-atab="discounts">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            <span>Discount Widget</span>
+          </button>
+          <button class="admin-nav-item" data-atab="media">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span>Edit Website Pictures</span>
+          </button>
+        </div>
+
+        <div class="admin-sidebar-footer">
+          <div class="admin-user-card">
+            <div class="admin-avatar">H</div>
+            <div class="admin-user-info">
+              <span>Hussnain Admin</span>
+              <small>hshussnain41@gmail.com</small>
+            </div>
+          </div>
+          <button type="button" class="btn-admin-logout" id="adminLogoutBtn">Sign Out Admin</button>
+        </div>
+      </aside>
+
+      <!-- Viewport -->
+      <main class="admin-viewport">
+        <!-- 1. Orders Tab -->
+        <div class="admin-tab-pane active" id="paneOrders">
+          <div class="admin-viewport-header">
+            <div>
+              <h2>Orders & Courier Fulfillment (Pakistan)</h2>
+              <p>Monitor recent Cash On Delivery packages across TCS, Leopards, and PostEx.</p>
+            </div>
+          </div>
+          <div class="admin-stats">
+            <div class="stat-box"><small>Total Orders</small><b id="admTotalOrders">0</b></div>
+            <div class="stat-box"><small>Total COD Revenue</small><b id="admTotalRev">Rs. 0</b></div>
+            <div class="stat-box"><small>Pending (New)</small><b id="admPendingOrders" style="color: var(--warning);">0</b></div>
+            <div class="stat-box"><small>Dispatched</small><b id="admDispatchedOrders" style="color: var(--accent);">0</b></div>
+          </div>
+          <div style="background: #FFFFFF; border: 1px solid var(--line); border-radius: var(--radius); overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th><th>Customer</th><th>Phone</th><th>City / Address</th><th>Items</th><th>Total</th><th>Status</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="adminOrdersTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 2. Categories Tab -->
+        <div class="admin-tab-pane" id="paneCategories">
+          <div class="admin-viewport-header">
+            <div>
+              <h2>Categories & Subcategory Menus</h2>
+              <p>Create, update, or remove top-level collections and their nested subcategories.</p>
+            </div>
+            <div>
+              <button class="btn-primary" id="toggleAddCatFormBtn" style="padding: 9px 18px; font-size: 13px;">➕ Add New Category</button>
+            </div>
+          </div>
+
+          <!-- Add Category Form -->
+          <div id="newCatFormContainer" style="display: none; background: #FFFFFF; border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; margin-bottom: 24px;">
+            <h4 style="font-size: 16px; margin-bottom: 14px; font-weight: 700;">Create New Category</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+              <div class="form-group">
+                <label for="newCatTitleInput">Category Name *</label>
+                <input type="text" id="newCatTitleInput" placeholder="e.g. Winter Collection">
+              </div>
+              <div class="form-group">
+                <label for="newCatSubInput">Initial Subcategories (Comma separated)</label>
+                <input type="text" id="newCatSubInput" placeholder="e.g. Hoodies, Sweaters, Jackets">
+              </div>
+              <div class="form-group" style="grid-column: 1 / -1; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px;">
+                <label style="font-size: 13px; font-weight: 700; margin-bottom: 8px;">Collection Cover Image (Choose Link or Upload from Computer)</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start;">
+                  <div>
+                    <label for="newCatImgUrlInput" style="font-size: 11.5px; font-weight: 600;">Option A: Paste Direct Web URL</label>
+                    <input type="url" id="newCatImgUrlInput" placeholder="https://images.unsplash.com/photo-...">
+                  </div>
+                  <div>
+                    <label for="newCatFileInput" style="font-size: 11.5px; font-weight: 600;">Option B: Upload from Computer</label>
+                    <input type="file" id="newCatFileInput" accept="image/*" style="padding: 7px; font-size: 12px; background: #fff;">
+                  </div>
+                </div>
+                <div id="newCatMediaPreviewWrapper" style="display: none; margin-top: 12px; align-items: center; gap: 12px;">
+                  <div id="newCatMediaPreviewContainer" style="width: 80px; height: 60px; border-radius: 6px; overflow: hidden; background: var(--surface-subtle); border: 1px solid var(--line); display: grid; place-items: center;"></div>
+                  <div style="font-size: 12px;">
+                    <span id="newCatMediaName" style="font-weight: 600; display: block; color: var(--primary);">Image selected</span>
+                    <button type="button" id="clearUploadedCatMediaBtn" style="background: none; border: 0; color: var(--danger); font-size: 11.5px; font-weight: 600; padding: 0; margin-top: 4px; cursor: pointer;">Remove file</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="form-error" id="newCatError"></div>
+            <button class="btn-primary" id="saveNewCategoryBtn" style="margin-top: 10px;">Save Category</button>
+          </div>
+
+          <div id="adminCategoriesList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px;"></div>
+        </div>
+
+        <!-- 3. Products Tab -->
+        <div class="admin-tab-pane" id="paneProducts">
+          <div class="admin-viewport-header">
+            <div>
+              <h2>Product Catalog & Inventory</h2>
+              <p>Reassign categories on the fly, adjust stock, or perform bulk removals.</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <button class="btn-primary" id="toggleAddProdFormBtn" style="padding: 9px 18px; font-size: 13px;">➕ Add New Product</button>
+              <button class="btn-outline" id="bulkDeleteProdsBtn" style="color: var(--danger); border-color: var(--danger); padding: 9px 16px; font-size: 13px;">🗑️ Delete Selected (<span id="bulkDelCount">0</span>)</button>
+            </div>
+          </div>
+
+          <div id="newProductFormContainer" style="display: none; background: #FFFFFF; border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; margin-bottom: 24px;">
+            <h4 style="font-size: 16px; margin-bottom: 14px; font-weight: 700;">Upload New Product</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+              <div class="form-group">
+                <label for="newProdTitle">Product Title *</label>
+                <input type="text" id="newProdTitle" placeholder="e.g. Monaco Leather Slides">
+              </div>
+              <div class="form-group">
+                <label for="newProdCat">Category *</label>
+                <select id="newProdCat"></select>
+              </div>
+              <div class="form-group">
+                <label for="newProdPrice">Price (PKR Rs.) *</label>
+                <input type="number" id="newProdPrice" placeholder="2990">
+              </div>
+              <div class="form-group">
+                <label for="newProdOldPrice">Original / Old Price</label>
+                <input type="number" id="newProdOldPrice" placeholder="3600">
+              </div>
+              <div class="form-group">
+                <label for="newProdStock">Stock Quantity *</label>
+                <input type="number" id="newProdStock" value="15">
+              </div>
+              <div class="form-group">
+                <label for="newProdBadge">Badge (Optional)</label>
+                <input type="text" id="newProdBadge" placeholder="e.g. Bestseller, New Arrival">
+              </div>
+
+              <div class="form-group" style="grid-column: 1 / -1; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px;">
+                <label style="font-size: 13px; font-weight: 700; margin-bottom: 8px;">Product Photo / Video (Choose Link or Upload from Computer)</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start;">
+                  <div>
+                    <label for="newProdImg" style="font-size: 11.5px; font-weight: 600;">Option A: Paste Direct Web URL</label>
+                    <input type="url" id="newProdImg" placeholder="https://images.unsplash.com/photo-...">
+                  </div>
+                  <div>
+                    <label for="newProdFileInput" style="font-size: 11.5px; font-weight: 600;">Option B: Upload from Computer (Image or MP4 Video)</label>
+                    <input type="file" id="newProdFileInput" accept="image/*,video/mp4,video/webm" style="padding: 7px; font-size: 12px; background: #fff;">
+                  </div>
+                </div>
+                <div id="newProdMediaPreviewWrapper" style="display: none; margin-top: 12px; align-items: center; gap: 12px;">
+                  <div id="newProdMediaPreviewContainer" style="width: 80px; height: 90px; border-radius: 6px; overflow: hidden; background: var(--surface-subtle); border: 1px solid var(--line); display: grid; place-items: center;"></div>
+                  <div style="font-size: 12px;">
+                    <span id="newProdMediaName" style="font-weight: 600; display: block; color: var(--primary);">Media selected</span>
+                    <button type="button" id="clearUploadedMediaBtn" style="background: none; border: 0; color: var(--danger); font-size: 11.5px; font-weight: 600; padding: 0; margin-top: 4px; cursor: pointer;">Remove uploaded file</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="newProdDesc">Description</label>
+                <textarea id="newProdDesc" rows="2" placeholder="Product details..."></textarea>
+              </div>
+            </div>
+            <div class="form-error" id="newProdError"></div>
+            <button class="btn-primary" id="saveNewProductBtn" style="margin-top: 10px;">Publish Product to Storefront</button>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid var(--line); border-radius: var(--radius); overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th style="width: 36px; text-align: center;"><input type="checkbox" id="selectAllProds" title="Select all"></th>
+                  <th style="width: 60px;">Image</th><th>Product Title</th><th>Price</th><th>Move Category</th><th>Stock</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="adminProductsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 4. Discounts Tab -->
+        <div class="admin-tab-pane" id="paneDiscounts">
+          <div class="admin-viewport-header">
+            <div>
+              <h2>Product Discount Manager</h2>
+              <p>Apply instant discount percentages and sales badges to any product.</p>
+            </div>
+          </div>
+          <div style="max-width: 520px; background: #FFFFFF; border: 1px solid var(--line); border-radius: var(--radius); padding: 24px;">
+            <div class="form-group">
+              <label for="discProdSelect">Select Product to Discount</label>
+              <select id="discProdSelect"></select>
+            </div>
+            <div class="form-group">
+              <label for="discPercentInput">Discount Percentage (e.g. 25%)</label>
+              <input type="number" id="discPercentInput" placeholder="e.g. 25" min="1" max="90">
+            </div>
+            <button class="btn-primary" id="applyDiscountBtn" style="margin-top: 8px;">Apply Discount Now</button>
+          </div>
+        </div>
+
+        <!-- 5. Media Tab -->
+        <div class="admin-tab-pane" id="paneMedia">
+          <div class="admin-viewport-header">
+            <div>
+              <h2>Edit Website Pictures & Banners</h2>
+              <p>Change hero images and collection cover photos with instant storefront updates.</p>
+            </div>
+          </div>
+          <div class="media-edit-grid">
+            <div class="media-card">
+              <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">Featured Hero Product Image</h4>
+              <div class="media-preview-box">
+                <img id="adminHeroImgPreview" src="https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?auto=format&fit=crop&w=600&q=80" alt="Hero Preview">
+              </div>
+              <div class="form-group">
+                <label for="editHeroImg">Direct Image URL</label>
+                <input type="url" id="editHeroImg" placeholder="https://images.unsplash.com/...">
+              </div>
+              <div class="form-group">
+                <label for="editHeroTitle">Hero Headline</label>
+                <input type="text" id="editHeroTitle">
+              </div>
+              <div class="form-group">
+                <label for="editHeroSub">Hero Sub-headline</label>
+                <textarea id="editHeroSub" rows="2"></textarea>
+              </div>
+              <button class="btn-primary" id="saveMediaChangesBtn" style="width: 100%; justify-content: center; margin-top: 8px;">Save Hero Changes</button>
+            </div>
+
+            <div class="media-card">
+              <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">Collection Cover Photos</h4>
+              <div class="form-group">
+                <label for="catPhotoSelect">Select Collection</label>
+                <select id="catPhotoSelect"></select>
+              </div>
+              <div class="media-preview-box">
+                <img id="adminCatPreview" src="https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=600&q=80" alt="Category Preview">
+              </div>
+              <div class="form-group">
+                <label for="editCatImgUrl">New Category Image URL</label>
+                <input type="url" id="editCatImgUrl" placeholder="https://images.unsplash.com/...">
+              </div>
+              <button class="btn-primary" id="saveCatImgBtn" style="width: 100%; justify-content: center; margin-top: 8px;">Update Collection Image</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<div id="storeToast" role="status" aria-live="polite"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
