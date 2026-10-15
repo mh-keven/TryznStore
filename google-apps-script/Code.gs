@@ -73,7 +73,21 @@ function doPost(e) {
     if (action === "createOrder") return jsonResponse_(createOrder_(payload.order || {}));
     if (action === "upsertCustomer") return jsonResponse_(upsertCustomer_(payload.customer || {}));
 
-    // Admin writes intentionally remain disabled until authenticated server-side.
+    // Admin actions verify Google's ID token and the server-side allowlist on EVERY request.
+    if (action === "adminAuthorize") {
+      const admin = verifyGoogleAdminToken_(payload.credential);
+      logAdminAction_(admin.email, "admin_sign_in", "admin", admin.sub, {method:"google_identity"}, "success");
+      return jsonResponse_({success:true, admin:{email:admin.email, name:admin.name || ""}});
+    }
+    if (action === "adminGetOrders") {
+      const admin = verifyGoogleAdminToken_(payload.credential);
+      return jsonResponse_({success:true, orders:readAdminOrders_(), admin_email:admin.email});
+    }
+    if (action === "adminUpdateOrderStatus") {
+      const admin = verifyGoogleAdminToken_(payload.credential);
+      return jsonResponse_(updateOrderStatus_(admin, payload.order_id, payload.status));
+    }
+
     return jsonResponse_({success:false,error:"Unsupported or protected action."});
   } catch (err) {
     return jsonResponse_({success:false,error:String(err && err.message || err)});
@@ -248,4 +262,132 @@ function diagnoseTryznProducts() {
   Logger.log("Sheet: " + sh.getName());
   Logger.log("Last row: " + sh.getLastRow());
   Logger.log("Headers: " + JSON.stringify(sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0]));
+}
+
+
+/**
+ * Admin authentication configuration is stored in Apps Script Project Settings
+ * > Script properties, never in public website JavaScript.
+ *
+ * GOOGLE_CLIENT_ID = the OAuth 2.0 Web client ID used by Google Identity Services
+ * ADMIN_EMAILS = comma-separated list of permitted Google account emails
+ *
+ * NOTE: tokeninfo is used here only for staging/testing. Google documents it as
+ * a debugging endpoint, not a production verifier. Do not launch admin writes
+ * publicly until this verification is replaced with cryptographic JWT verification
+ * using Google's rotating public keys or a trusted auth backend.
+ */
+function verifyGoogleAdminToken_(credential) {
+  const token = clean_(credential, 10000);
+  if (!token || token.length < 100) throw new Error("Google sign-in token is missing.");
+
+  const props = PropertiesService.getScriptProperties();
+  const expectedClientId = clean_(props.getProperty("GOOGLE_CLIENT_ID"), 300);
+  const allowedEmails = String(props.getProperty("ADMIN_EMAILS") || "")
+    .split(",").map(function(email) { return email.trim().toLowerCase(); }).filter(Boolean);
+
+  if (!expectedClientId || !allowedEmails.length) {
+    throw new Error("Admin authentication is not configured. Set GOOGLE_CLIENT_ID and ADMIN_EMAILS in Apps Script Script properties.");
+  }
+
+  const response = UrlFetchApp.fetch("https://oauth2.googleapis.com/tokeninfo", {
+    method: "post",
+    payload: {id_token: token},
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) throw new Error("Google sign-in token could not be verified.");
+
+  const claims = JSON.parse(response.getContentText());
+  const issuer = String(claims.iss || "");
+  const expiresAt = Number(claims.exp || 0);
+  const email = String(claims.email || "").trim().toLowerCase();
+
+  if (claims.aud !== expectedClientId) throw new Error("Google sign-in token was issued for a different application.");
+  if (issuer !== "accounts.google.com" && issuer !== "https://accounts.google.com") throw new Error("Google token issuer is invalid.");
+  if (!expiresAt || expiresAt <= Math.floor(Date.now() / 1000)) throw new Error("Google sign-in token has expired.");
+  if (String(claims.email_verified).toLowerCase() !== "true") throw new Error("The Google account email is not verified.");
+  if (!email || allowedEmails.indexOf(email) === -1) {
+    logAdminAction_(email || "unknown", "admin_sign_in_denied", "admin", String(claims.sub || ""), {reason:"not_allowlisted"}, "denied");
+    throw new Error("This Google account is not authorized to access the store admin.");
+  }
+
+  return {email:email, sub:String(claims.sub || ""), name:clean_(claims.name, 120)};
+}
+
+function readAdminOrders_() {
+  return readObjects_("Orders").map(function(row) {
+    let items = [];
+    try { items = JSON.parse(String(row.items_json || "[]")); } catch (err) {}
+    if (!Array.isArray(items)) items = [];
+    return {
+      id: String(row.order_id || ""),
+      time: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at || ""),
+      customer_id: String(row.customer_id || ""),
+      name: String(row.customer_name || ""),
+      phone: String(row.phone || ""),
+      email: String(row.email || ""),
+      city: String(row.city || ""),
+      address: String(row.address || ""),
+      items: items,
+      subtotal: Number(row.subtotal) || 0,
+      discount: Number(row.discount) || 0,
+      shipping: Number(row.shipping_fee) || 0,
+      total: Number(row.total) || 0,
+      status: String(row.status || "New"),
+      tracking_number: String(row.tracking_number || ""),
+      notes: String(row.notes || "")
+    };
+  }).filter(function(order) { return order.id; }).reverse();
+}
+
+function updateOrderStatus_(admin, orderIdValue, statusValue) {
+  const orderId = clean_(orderIdValue, 80);
+  const status = clean_(statusValue, 40);
+  const allowedStatuses = ["New", "Confirmed", "Dispatched", "Delivered", "Cancelled"];
+  if (!orderId || allowedStatuses.indexOf(status) === -1) throw new Error("Invalid order ID or status.");
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sh = sheet_("Orders");
+    const row = findRowByValue_(sh, "order_id", orderId);
+    if (!row) throw new Error("Order not found.");
+
+    const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0].map(function(h) { return String(h).trim(); });
+    const statusCol = headers.indexOf("status") + 1;
+    const updatedCol = headers.indexOf("updated_at") + 1;
+    if (!statusCol) throw new Error('Missing "status" column in Orders sheet.');
+    sh.getRange(row, statusCol).setValue(status);
+    if (updatedCol) sh.getRange(row, updatedCol).setValue(new Date());
+
+    logAdminAction_(admin.email, "order_status_updated", "order", orderId, {status:status}, "success");
+    return {success:true, order_id:orderId, status:status};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function logAdminAction_(email, action, entityType, entityId, details, result) {
+  appendObject_("AdminLogs", {
+    log_id: Utilities.getUuid(),
+    timestamp: new Date(),
+    admin_identifier: clean_(email, 160),
+    action: clean_(action, 80),
+    entity_type: clean_(entityType, 80),
+    entity_id: clean_(entityId, 120),
+    details_json: JSON.stringify(details || {}),
+    result: clean_(result, 40)
+  });
+}
+
+/** Run manually to confirm the required server-side configuration exists. */
+function checkTryznAdminConfiguration() {
+  const props = PropertiesService.getScriptProperties();
+  const clientId = props.getProperty("GOOGLE_CLIENT_ID");
+  const emails = props.getProperty("ADMIN_EMAILS");
+  Logger.log("GOOGLE_CLIENT_ID configured: " + Boolean(clientId));
+  Logger.log("ADMIN_EMAILS configured: " + Boolean(emails && emails.trim()));
+  if (!clientId || !emails || !emails.trim()) {
+    throw new Error("Add GOOGLE_CLIENT_ID and ADMIN_EMAILS in Project Settings > Script properties.");
+  }
 }
