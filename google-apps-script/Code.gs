@@ -48,7 +48,7 @@ function doGet(e) {
   try {
     const action = String((e && e.parameter && e.parameter.action) || "products").toLowerCase();
     if (action === "products") return jsonResponse_({success:true, products:readObjects_("Products")});
-    if (action === "promocodes" || action === "promocodes") {
+    if (action === "promocodes" || action === "promo-codes") {
       const promos = readObjects_("PromoCodes").map(function(p) {
         p.applicable_categories = parseJsonArray_(p.applicable_categories_json);
         p.applicable_product_ids = parseJsonArray_(p.applicable_product_ids_json);
