@@ -22,14 +22,13 @@ const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 
 /* Configuration for Pakistan Domestic Dropshipping */
 const CFG = {
-  
-  api: 'https://script.google.com/macros/s/AKfycbzoJJ-w-pUIg5_RBcl0X_asVmm2fQOsz8Z16jNRCSyKZVPmecvbZtXQ_52QI1kvHlBg/exec', 
-  wa: '923278081874', 
+  // Read-only Google Sheets product endpoint. Orders/promos/admin writes need backend endpoints.
+  api: 'https://script.google.com/macros/s/AKfycbzoJJ-w-pUIg5_RBcl0X_asVmm2fQOsz8Z16jNRCSyKZVPmecvbZtXQ_52QI1kvHlBg/exec',
+  wa: '923278081874',
   currency: 'Rs.',
   shippingFee: 200,
   freeShippingOver: 4999,
-  adminEmail: 'hshussnain41@gmail.com',
-  adminPass: 'Keven1062&'
+  adminEmail: 'hshussnain41@gmail.com'
 };
 
 const formatMoney = n => CFG.currency + ' ' + Number(n).toLocaleString('en-PK');
@@ -121,22 +120,31 @@ async function loadProductsFromSheets() {
 
     // Keep only active products and map Sheet columns to website fields.
     const sheetProducts = data.products
-      .filter(p => String(p.active).toLowerCase() === 'true')
-      .map(p => ({
-        id: String(p.product_id || ''),
-        name: String(p.name || ''),
-        category: String(p.category || ''),
-        subcategory: String(p.subcategory || ''),
-        price: Number(p.price) || 0,
-        oldPrice: Number(p.old_price) || 0,
-        rating: Number(p.rating) || 0,
-        reviews: Number(p.reviews) || 0,
-        stock: Number(p.stock) || 0,
-        badge: String(p.badge || ''),
-        image: String(p.image || ''),
-        description: String(p.description || '')
-      }))
-      .filter(p => p.id && p.name);
+      .filter(p => String(p.active).trim().toLowerCase() === 'true')
+      .map(p => {
+        const id = String(p.product_id || '').trim();
+        const name = String(p.name || '').trim();
+        const category = String(p.category || '').trim();
+        const rawImage = String(p.image || '').trim();
+        const validImage = /^https?:\/\//i.test(rawImage);
+        const categoryFallback = DEFAULT_PRODUCTS.find(item => item.category === category);
+        return {
+          id,
+          name,
+          category,
+          subcategory: String(p.subcategory || '').trim(),
+          price: Math.max(0, Number(p.price) || 0),
+          oldPrice: Math.max(0, Number(p.old_price) || 0),
+          rating: Math.max(0, Number(p.rating) || 0),
+          reviews: Math.max(0, Number(p.reviews) || 0),
+          stock: Math.max(0, Number(p.stock) || 0),
+          badge: String(p.badge || '').trim(),
+          // Ignore placeholder text such as "Leave blank" in the image column.
+          image: validImage ? rawImage : (categoryFallback?.image || DEFAULT_PRODUCTS[0].image),
+          description: String(p.description || '').trim()
+        };
+      })
+      .filter(p => p.id && p.name && p.price > 0);
 
     // Don't replace the existing catalogue with an empty result.
     if (!sheetProducts.length) {
@@ -147,8 +155,12 @@ async function loadProductsFromSheets() {
     productsList = sheetProducts;
     storage.set('tryzn_products', productsList);
 
-    // Refresh the existing storefront using its own render functions.
+    // Refresh every storefront view that depends on the product catalogue.
+    if (typeof renderNav === 'function') renderNav();
     if (typeof renderProducts === 'function') renderProducts();
+    if (typeof renderHomeFeatured === 'function') renderHomeFeatured();
+    if (typeof updateCartBadge === 'function') updateCartBadge();
+    if (typeof renderDrawer === 'function' && document.body.classList.contains('drawer-open')) renderDrawer();
 
     console.log('Loaded products from Google Sheets:', sheetProducts.length);
   } catch (error) {
@@ -163,7 +175,9 @@ let ordersList = storage.get('tryzn_orders', [
 ]);
 let currentUser = storage.get('tryzn_user', null);
 let registeredUsers = storage.get('tryzn_registered_users', []);
-let isAdminLoggedIn = storage.get('tryzn_is_admin', false);
+// Admin access must not be trusted from public localStorage.
+let isAdminLoggedIn = false;
+storage.set('tryzn_is_admin', false);
 let drawerView = 'cart';
 let lastPlacedOrder = null;
 
@@ -849,21 +863,11 @@ function handleUnifiedSignIn() {
     return; 
   }
 
-  // 1. Strict Administrator Authentication
+  // Admin authentication is intentionally disabled until server-side verification exists.
+  // A password stored in public JavaScript or localStorage is not secure.
   if (email.toLowerCase() === CFG.adminEmail.toLowerCase()) {
-    if (pass === CFG.adminPass) {
-      err.textContent = '';
-      isAdminLoggedIn = true;
-      storage.set('tryzn_is_admin', true);
-      updateUserUI();
-      closeAuth();
-      openAdminModal();
-      showToast('Welcome back, Store Administrator!');
-      return;
-    } else {
-      err.textContent = 'Incorrect password for administrator account.';
-      return;
-    }
+    err.textContent = 'Admin sign-in is temporarily unavailable while secure server-side authentication is configured. Do not enter an admin password on this page.';
+    return;
   }
 
   // 2. Strict Customer Authentication
