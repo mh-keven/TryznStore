@@ -22,7 +22,8 @@ const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 
 /* Configuration for Pakistan Domestic Dropshipping */
 const CFG = {
-  api: '', 
+  
+  api: 'https://script.google.com/macros/s/AKfycbzoJJ-w-pUIg5_RBcl0X_asVmm2fQOsz8Z16jNRCSyKZVPmecvbZtXQ_52QI1kvHlBg/exec', 
   wa: '923278081874', 
   currency: 'Rs.',
   shippingFee: 200,
@@ -97,10 +98,65 @@ let activeSubcategory = null;
 let cart = storage.get('tryzn_cart', {});
 let promoCodes = storage.get('tryzn_promo_codes', []);
 let appliedPromoCode = storage.get('tryzn_applied_promo', null);
+
 let productsList = storage.get('tryzn_products', null);
+
 if (!productsList || productsList.length < 10) {
   productsList = DEFAULT_PRODUCTS;
   storage.set('tryzn_products', productsList);
+}
+
+// Google Sheets product API
+async function loadProductsFromSheets() {
+  if (!CFG.api) return;
+
+  try {
+    const response = await fetch(CFG.api + '?action=products');
+    if (!response.ok) throw new Error('Could not load products');
+
+    const data = await response.json();
+    if (!data.success || !Array.isArray(data.products)) {
+      throw new Error(data.error || 'Invalid product response');
+    }
+
+    // Keep only active products and map Sheet columns to website fields.
+    const sheetProducts = data.products
+      .filter(p => String(p.active).toLowerCase() === 'true')
+      .map(p => ({
+        id: String(p.product_id || ''),
+        name: String(p.name || ''),
+        category: String(p.category || ''),
+        subcategory: String(p.subcategory || ''),
+        price: Number(p.price) || 0,
+        oldPrice: Number(p.old_price) || 0,
+        rating: Number(p.rating) || 0,
+        reviews: Number(p.reviews) || 0,
+        stock: Number(p.stock) || 0,
+        badge: String(p.badge || ''),
+        image: String(p.image || ''),
+        description: String(p.description || '')
+      }))
+      .filter(p => p.id && p.name);
+
+    // Don't replace the existing catalogue with an empty result.
+    if (!sheetProducts.length) {
+      console.warn('Google Sheets returned no active products; keeping existing products.');
+      return;
+    }
+
+    productsList = sheetProducts;
+    storage.set('tryzn_products', productsList);
+
+    // Refresh the existing storefront using its own render functions.
+    if (typeof renderProducts === 'function') renderProducts();
+
+    console.log('Loaded products from Google Sheets:', sheetProducts.length);
+  } catch (error) {
+    console.error('Google Sheets product loading failed:', error);
+    // Existing local/demo products remain available.
+  }
+}
+
 }
 let ordersList = storage.get('tryzn_orders', [
   { id: 'TZ-910482', time: '2026-10-15 11:20', name: 'Hamza Malik', phone: '0301-8472910', city: 'Lahore', address: 'House 42, Block C, Model Town', items: [{ id: 'm1', name: 'Old Money Textured Knitted Polo', qty: 1, price: 2790 }], total: 2990, status: 'New' }
@@ -1585,4 +1641,5 @@ document.addEventListener('keydown', e => {
   renderProducts();
   renderHomeFeatured();
   updateCartBadge();
+  loadProductsFromSheets();
 })();
