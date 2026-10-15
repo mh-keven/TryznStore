@@ -965,6 +965,7 @@ async function handleUnifiedSignIn() {
   try {
     // The normal sign-in form also authenticates the store administrator.
     let adminResult = null;
+    let adminErrorMessage = '';
     try {
       adminResult = await writeSheetsAction({
         action: 'adminLogin',
@@ -972,7 +973,8 @@ async function handleUnifiedSignIn() {
         password: pass
       });
     } catch (adminError) {
-      // Continue with customer sign-in if this isn't a successful admin login.
+      // Preserve the server response so an admin can see configuration or credential errors.
+      adminErrorMessage = adminError && adminError.message ? adminError.message : 'Admin sign-in request failed.';
     }
 
     if (adminResult && adminResult.success && adminResult.admin) {
@@ -1001,7 +1003,7 @@ async function handleUnifiedSignIn() {
     const found = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
 
     if (!found) {
-      err.textContent = 'No account found with this email. Please check your details or create an account.';
+      err.textContent = adminErrorMessage || 'No account found with this email. Please check your details or create an account.';
       return;
     }
 
