@@ -43,13 +43,23 @@ const DEFAULT_CATEGORIES = [
   { name: 'Fragrances', image: 'https://images.unsplash.com/photo-1523293182086-7651a899d37f?auto=format&fit=crop&w=600&q=80', count: 'Luxury EDP & Ouds', subcategories: ['Eau De Parfum', 'Oriental Ouds'] },
   { name: 'Home', image: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?auto=format&fit=crop&w=600&q=80', count: 'Bedding & Diffusers', subcategories: ['Bed Sheets', 'Aroma Diffusers'] },
   { name: 'Combo Deals', image: 'https://images.unsplash.com/photo-1490114538077-0a7f8cb49891?auto=format&fit=crop&w=600&q=80', count: 'Bundle & Save Extra', subcategories: ['Apparel Bundles', 'Executive Boxes'] }
-]);
+];
 
-let CATEGORIES = storage.get('tryzn_categories', DEFAULT_CATEGORIES);
-if (!Array.isArray(CATEGORIES) || CATEGORIES.length === 0) {
-  CATEGORIES = DEFAULT_CATEGORIES;
-  storage.set('tryzn_categories', CATEGORIES);
-}
+// Restore every original collection if old browser storage contains an incomplete list.
+// Keep saved edits for existing collections and append any custom collections.
+const savedCategories = storage.get('tryzn_categories', []);
+const savedCategoryList = Array.isArray(savedCategories) ? savedCategories : [];
+const savedByName = new Map(savedCategoryList.filter(c => c && c.name).map(c => [String(c.name).trim().toLowerCase(), c]));
+const CATEGORIES = DEFAULT_CATEGORIES.map(def => {
+  const saved = savedByName.get(def.name.toLowerCase());
+  return saved ? { ...def, ...saved, name: def.name } : { ...def };
+});
+savedCategoryList.forEach(saved => {
+  if (saved && saved.name && !CATEGORIES.some(c => c.name.toLowerCase() === String(saved.name).trim().toLowerCase())) {
+    CATEGORIES.push(saved);
+  }
+});
+storage.set('tryzn_categories', CATEGORIES);
 
 /* 26 Verified Demo Products for Pakistan */
 const DEFAULT_PRODUCTS = [
