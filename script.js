@@ -1215,58 +1215,44 @@ function updateBulkDelCount() {
   if ($('#bulkDelCount')) $('#bulkDelCount').textContent = count;
 }
 
-let adminGoogleCredential = null; // memory only; never persist the Google ID token
+let adminCredentials = null; // Keep admin credentials in memory only; never store them in localStorage.
 
-async function handleGoogleAdminCredential(response) {
-  const err = $('#adminGoogleSignInError');
+async function handleAdminLogin() {
+  const email = ($('#adminLoginEmail').value || '').trim().toLowerCase();
+  const password = $('#adminLoginPass').value || '';
+  const err = $('#adminLoginError');
   if (err) err.textContent = '';
-  const buttonWrap = $('#googleAdminSignInButton');
+  if (!email || !password) {
+    if (err) err.textContent = 'Enter your admin email and password.';
+    return;
+  }
+  const button = $('#adminLoginBtn');
+  if (button) button.disabled = true;
   try {
-    if (!response || !response.credential) throw new Error('Google did not return a sign-in credential.');
-    const verified = await writeSheetsAction({action:'adminAuthorize', credential:response.credential});
-    if (!verified || !verified.success || !verified.admin || !verified.admin.email) {
-      throw new Error('The server did not authorize this Google account.');
-    }
-    adminGoogleCredential = response.credential;
+    const result = await writeSheetsAction({action:'adminLogin', email:email, password:password});
+    if (!result || !result.success || !result.admin) throw new Error('Admin login was not accepted.');
+    adminCredentials = {email:email, password:password};
     isAdminLoggedIn = true;
     currentUser = null;
     storage.set('tryzn_user', null);
-    storage.set('tryzn_is_admin', false); // never persist admin authority in localStorage
+    storage.set('tryzn_is_admin', false);
     updateUserUI();
     closeAuth();
-    showToast('Admin verified by Google. Loading secure order data…');
     await refreshAdminOrders();
     openAdminModal();
+    showToast('Admin signed in. Orders are connected to Google Sheets.');
   } catch (error) {
-    adminGoogleCredential = null;
+    adminCredentials = null;
     isAdminLoggedIn = false;
-    if (err) err.textContent = error.message || 'Admin sign-in failed. Check deployment and configuration.';
-    if (buttonWrap) buttonWrap.setAttribute('data-auth-error', 'true');
+    if (err) err.textContent = error.message || 'Admin login failed. Check credentials and Apps Script settings.';
+  } finally {
+    if (button) button.disabled = false;
   }
-}
-
-function initializeGoogleAdminSignIn() {
-  if (!window.google || !google.accounts || !google.accounts.id) return;
-  const clientId = window.TRYZN_GOOGLE_CLIENT_ID;
-  const mount = $('#googleAdminSignInButton');
-  if (!clientId || !mount) {
-    const err = $('#adminGoogleSignInError');
-    if (err) err.textContent = 'Admin sign-in is not configured yet. Add the Google OAuth client ID to the site configuration.';
-    return;
-  }
-  google.accounts.id.initialize({
-    client_id: clientId,
-    callback: handleGoogleAdminCredential,
-    auto_select: false,
-    cancel_on_tap_outside: true
-  });
-  mount.innerHTML = '';
-  google.accounts.id.renderButton(mount, {type:'standard', theme:'outline', size:'large', text:'signin_with', shape:'rectangular', width:280});
 }
 
 async function refreshAdminOrders() {
-  if (!adminGoogleCredential) throw new Error('Admin session is missing. Sign in with Google again.');
-  const data = await writeSheetsAction({action:'adminGetOrders', credential:adminGoogleCredential});
+  if (!adminCredentials) throw new Error('Admin session is missing. Sign in again.');
+  const data = await writeSheetsAction({action:'adminGetOrders', email:adminCredentials.email, password:adminCredentials.password});
   if (!data || !Array.isArray(data.orders)) throw new Error('The server returned invalid order data.');
   ordersList = data.orders.map(o => ({
     id:String(o.id || ''), time:String(o.time || ''), name:String(o.name || ''),
@@ -1281,7 +1267,7 @@ async function refreshAdminOrders() {
 }
 
 async function openAdminModal() {
-  if (!isAdminLoggedIn || !adminGoogleCredential) { openAuth('signin'); return; }
+  if (!isAdminLoggedIn || !adminCredentials) { openAuth('signin'); return; }
   try {
     await refreshAdminOrders();
     renderAdmin();
@@ -1289,7 +1275,7 @@ async function openAdminModal() {
     document.body.classList.add('admin-open');
   } catch (error) {
     isAdminLoggedIn = false;
-    adminGoogleCredential = null;
+    adminCredentials = null;
     updateUserUI();
     openAuth('signin');
     showToast(error.message || 'Admin session could not be verified.', true);
@@ -1314,7 +1300,7 @@ function openAuth(tab = 'signin') {
 function closeAuth() { document.body.classList.remove('auth-open'); }
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
+  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #adminLoginBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
   if (!t) return;
 
   if (t.hasAttribute('data-open-shop')) { e.preventDefault(); openShopPage('All'); }
@@ -1557,6 +1543,7 @@ document.addEventListener('click', e => {
   else if (t.id === 'tabSignInBtn') openAuth('signin');
   else if (t.id === 'tabRegisterBtn') openAuth('register');
   else if (t.id === 'signInSubmitBtn') handleUnifiedSignIn();
+  else if (t.id === 'adminLoginBtn') handleAdminLogin();
   else if (t.id === 'regSubmitBtn') handleCustomerRegister();
   else if (t.id === 'userLogoutBtn') {
     currentUser = null;
@@ -1567,9 +1554,9 @@ document.addEventListener('click', e => {
   }
   else if (t.id === 'adminLogoutBtn' || t.id === 'adminLogoutAuthBtn') {
     isAdminLoggedIn = false;
-    adminGoogleCredential = null;
+    adminCredentials = null;
     storage.set('tryzn_is_admin', false);
-    if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
+    
     updateUserUI();
     closeAdminModal();
     closeAuth();
@@ -1702,15 +1689,16 @@ document.addEventListener('change', e => {
       const previousStatus = o.status;
       const requestedStatus = select.value;
       select.disabled = true;
-      if (!isAdminLoggedIn || !adminGoogleCredential) {
+      if (!isAdminLoggedIn || !adminCredentials) {
         select.value = previousStatus;
         select.disabled = false;
-        showToast('Admin session expired. Sign in with Google again.', true);
+        showToast('Admin session expired. Sign in again.', true);
         return;
       }
       writeSheetsAction({
         action:'adminUpdateOrderStatus',
-        credential:adminGoogleCredential,
+        email:adminCredentials.email,
+        password:adminCredentials.password,
         order_id:o.id,
         status:requestedStatus
       }).then(result => {
@@ -1841,7 +1829,6 @@ document.addEventListener('keydown', e => {
     let announcementIndex = 0;
     setInterval(() => { announcements[announcementIndex].classList.remove('is-active'); announcementIndex = (announcementIndex + 1) % announcements.length; announcements[announcementIndex].classList.add('is-active'); }, 4000);
   }
-  initializeGoogleAdminSignIn();
   updateUserUI();
   renderNav();
   renderProducts();
