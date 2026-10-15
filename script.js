@@ -28,7 +28,6 @@ const CFG = {
   currency: 'Rs.',
   shippingFee: 200,
   freeShippingOver: 4999,
-  adminEmail: 'hshussnain41@gmail.com'
 };
 
 const formatMoney = n => CFG.currency + ' ' + Number(n).toLocaleString('en-PK');
@@ -959,10 +958,10 @@ function handleUnifiedSignIn() {
     return; 
   }
 
-  // Admin authentication is intentionally disabled until server-side verification exists.
-  // A password stored in public JavaScript or localStorage is not secure.
-  if (email.toLowerCase() === CFG.adminEmail.toLowerCase()) {
-    err.textContent = 'Admin sign-in is temporarily unavailable while secure server-side authentication is configured. Do not enter an admin password on this page.';
+  // Admins must use the separate Google Identity sign-in button.
+  // The server, not this public script, decides who is an authorized admin.
+  if (email.toLowerCase() === 'hshussnain41@gmail.com') {
+    err.textContent = 'For administrator access, use “Admin sign in with Google” below.';
     return;
   }
 
@@ -1223,11 +1222,85 @@ function updateBulkDelCount() {
   if ($('#bulkDelCount')) $('#bulkDelCount').textContent = count;
 }
 
-function openAdminModal() {
-  if (!isAdminLoggedIn) { openAuth('signin'); return; }
-  renderAdmin();
-  updateCategoryPhotoPreview();
-  document.body.classList.add('admin-open');
+let adminGoogleCredential = null; // memory only; never persist the Google ID token
+
+async function handleGoogleAdminCredential(response) {
+  const err = $('#adminGoogleSignInError');
+  if (err) err.textContent = '';
+  const buttonWrap = $('#googleAdminSignInButton');
+  try {
+    if (!response || !response.credential) throw new Error('Google did not return a sign-in credential.');
+    const verified = await writeSheetsAction({action:'adminAuthorize', credential:response.credential});
+    if (!verified || !verified.success || !verified.admin || !verified.admin.email) {
+      throw new Error('The server did not authorize this Google account.');
+    }
+    adminGoogleCredential = response.credential;
+    isAdminLoggedIn = true;
+    currentUser = null;
+    storage.set('tryzn_user', null);
+    storage.set('tryzn_is_admin', false); // never persist admin authority in localStorage
+    updateUserUI();
+    closeAuth();
+    showToast('Admin verified by Google. Loading secure order data…');
+    await refreshAdminOrders();
+    openAdminModal();
+  } catch (error) {
+    adminGoogleCredential = null;
+    isAdminLoggedIn = false;
+    if (err) err.textContent = error.message || 'Admin sign-in failed. Check deployment and configuration.';
+    if (buttonWrap) buttonWrap.setAttribute('data-auth-error', 'true');
+  }
+}
+
+function initializeGoogleAdminSignIn() {
+  if (!window.google || !google.accounts || !google.accounts.id) return;
+  const clientId = window.TRYZN_GOOGLE_CLIENT_ID;
+  const mount = $('#googleAdminSignInButton');
+  if (!clientId || !mount) {
+    const err = $('#adminGoogleSignInError');
+    if (err) err.textContent = 'Admin sign-in is not configured yet. Add the Google OAuth client ID to the site configuration.';
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: clientId,
+    callback: handleGoogleAdminCredential,
+    auto_select: false,
+    cancel_on_tap_outside: true
+  });
+  mount.innerHTML = '';
+  google.accounts.id.renderButton(mount, {type:'standard', theme:'outline', size:'large', text:'signin_with', shape:'rectangular', width:280});
+}
+
+async function refreshAdminOrders() {
+  if (!adminGoogleCredential) throw new Error('Admin session is missing. Sign in with Google again.');
+  const data = await writeSheetsAction({action:'adminGetOrders', credential:adminGoogleCredential});
+  if (!data || !Array.isArray(data.orders)) throw new Error('The server returned invalid order data.');
+  ordersList = data.orders.map(o => ({
+    id:String(o.id || ''), time:String(o.time || ''), name:String(o.name || ''),
+    phone:String(o.phone || ''), email:String(o.email || ''), city:String(o.city || ''),
+    address:String(o.address || ''), items:Array.isArray(o.items) ? o.items : [],
+    subtotal:Number(o.subtotal)||0, discount:Number(o.discount)||0,
+    shipping:Number(o.shipping)||0, total:Number(o.total)||0,
+    status:String(o.status || 'New'), tracking_number:String(o.tracking_number || ''), notes:String(o.notes || '')
+  }));
+  storage.set('tryzn_orders', ordersList);
+  return ordersList;
+}
+
+async function openAdminModal() {
+  if (!isAdminLoggedIn || !adminGoogleCredential) { openAuth('signin'); return; }
+  try {
+    await refreshAdminOrders();
+    renderAdmin();
+    updateCategoryPhotoPreview();
+    document.body.classList.add('admin-open');
+  } catch (error) {
+    isAdminLoggedIn = false;
+    adminGoogleCredential = null;
+    updateUserUI();
+    openAuth('signin');
+    showToast(error.message || 'Admin session could not be verified.', true);
+  }
 }
 function closeAdminModal() { document.body.classList.remove('admin-open'); }
 function openAuth(tab = 'signin') {
@@ -1501,7 +1574,9 @@ document.addEventListener('click', e => {
   }
   else if (t.id === 'adminLogoutBtn' || t.id === 'adminLogoutAuthBtn') {
     isAdminLoggedIn = false;
+    adminGoogleCredential = null;
     storage.set('tryzn_is_admin', false);
+    if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
     updateUserUI();
     closeAdminModal();
     closeAuth();
@@ -1628,12 +1703,33 @@ document.addEventListener('change', e => {
   }
   else if (e.target.classList.contains('prod-chk')) updateBulkDelCount();
   else if (e.target.dataset.orderStatus) {
-    const o = ordersList.find(x => x.id === e.target.dataset.orderStatus);
+    const select = e.target;
+    const o = ordersList.find(x => x.id === select.dataset.orderStatus);
     if (o) {
-      o.status = e.target.value;
-      storage.set('tryzn_orders', ordersList);
-      renderAdmin();
-      showToast('Order #' + o.id + ' status: ' + o.status);
+      const previousStatus = o.status;
+      const requestedStatus = select.value;
+      select.disabled = true;
+      if (!isAdminLoggedIn || !adminGoogleCredential) {
+        select.value = previousStatus;
+        select.disabled = false;
+        showToast('Admin session expired. Sign in with Google again.', true);
+        return;
+      }
+      writeSheetsAction({
+        action:'adminUpdateOrderStatus',
+        credential:adminGoogleCredential,
+        order_id:o.id,
+        status:requestedStatus
+      }).then(result => {
+        if (!result || !result.success) throw new Error('The server did not save this status.');
+        o.status = result.status;
+        storage.set('tryzn_orders', ordersList);
+        renderAdmin();
+        showToast('Order #' + o.id + ' status saved to Google Sheets.');
+      }).catch(error => {
+        select.value = previousStatus;
+        showToast(error.message || 'Order status could not be saved.', true);
+      }).finally(() => { select.disabled = false; });
     }
   }
   else if (e.target.id === 'themeSelect') document.body.setAttribute('data-theme', e.target.value);
@@ -1752,6 +1848,7 @@ document.addEventListener('keydown', e => {
     let announcementIndex = 0;
     setInterval(() => { announcements[announcementIndex].classList.remove('is-active'); announcementIndex = (announcementIndex + 1) % announcements.length; announcements[announcementIndex].classList.add('is-active'); }, 4000);
   }
+  initializeGoogleAdminSignIn();
   updateUserUI();
   renderNav();
   renderProducts();
