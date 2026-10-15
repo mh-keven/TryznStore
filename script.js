@@ -948,35 +948,76 @@ function updateUserUI() {
   }
 }
 
-function handleUnifiedSignIn() {
+async function handleUnifiedSignIn() {
   const email = ($('#loginEmail').value || '').trim();
-  const pass = ($('#loginPass').value || '').trim();
+  const pass = $('#loginPass').value || '';
   const err = $('#signInError');
+  const button = $('#signInSubmitBtn');
 
-  if (!email || !pass) { 
-    err.textContent = 'Please enter both your email address and password.'; 
-    return; 
-  }
-
-  // 2. Strict Customer Authentication
-  const found = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-  
-  if (!found) {
-    err.textContent = 'No account found with this email. Please click "Create Account" above to register.';
+  if (!email || !pass) {
+    err.textContent = 'Please enter both your email address and password.';
     return;
   }
 
-  if (found.pass !== pass) {
-    err.textContent = 'Incorrect password. Please verify your credentials and try again.';
-    return;
-  }
-
-  currentUser = found;
   err.textContent = '';
-  storage.set('tryzn_user', currentUser);
-  updateUserUI();
-  closeAuth();
-  showToast('Welcome back, ' + (currentUser.name || 'Customer') + '!');
+  if (button) button.disabled = true;
+
+  try {
+    // The normal sign-in form also authenticates the store administrator.
+    let adminResult = null;
+    try {
+      adminResult = await writeSheetsAction({
+        action: 'adminLogin',
+        email: email.toLowerCase(),
+        password: pass
+      });
+    } catch (adminError) {
+      // Continue with customer sign-in if this isn't a successful admin login.
+    }
+
+    if (adminResult && adminResult.success && adminResult.admin) {
+      adminCredentials = { email: email.toLowerCase(), password: pass };
+      isAdminLoggedIn = true;
+      currentUser = null;
+      storage.set('tryzn_user', null);
+      storage.set('tryzn_is_admin', false);
+      updateUserUI();
+      closeAuth();
+
+      try {
+        await refreshAdminOrders();
+        openAdminModal();
+        showToast('Admin signed in. Orders are connected to Google Sheets.');
+      } catch (adminError) {
+        isAdminLoggedIn = false;
+        adminCredentials = null;
+        updateUserUI();
+        openAuth('signin');
+        err.textContent = adminError.message || 'Admin signed in, but the orders could not be loaded. Please try again.';
+      }
+      return;
+    }
+
+    const found = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+    if (!found) {
+      err.textContent = 'No account found with this email. Please check your details or create an account.';
+      return;
+    }
+
+    if (found.pass !== pass) {
+      err.textContent = 'Incorrect password. Please verify your credentials and try again.';
+      return;
+    }
+
+    currentUser = found;
+    storage.set('tryzn_user', currentUser);
+    updateUserUI();
+    closeAuth();
+    showToast('Welcome back, ' + (currentUser.name || 'Customer') + '!');
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 function handleCustomerRegister() {
@@ -1543,7 +1584,6 @@ document.addEventListener('click', e => {
   else if (t.id === 'tabSignInBtn') openAuth('signin');
   else if (t.id === 'tabRegisterBtn') openAuth('register');
   else if (t.id === 'signInSubmitBtn') handleUnifiedSignIn();
-  else if (t.id === 'adminLoginBtn') handleAdminLogin();
   else if (t.id === 'regSubmitBtn') handleCustomerRegister();
   else if (t.id === 'userLogoutBtn') {
     currentUser = null;
