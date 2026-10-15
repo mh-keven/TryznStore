@@ -127,7 +127,7 @@ function renderNav() {
   // Header Nav Bar with Dropdown Submenus
   const topNav = $('#topNav');
   if (topNav) {
-    topNav.innerHTML = cats.map(c => {
+    topNav.innerHTML = `<div class="nav-item-wrapper"><a href="#shop" class="header-nav-link shop-nav-link" data-open-shop>Shop</a></div>` + cats.map(c => {
       const catObj = CATEGORIES.find(x => x.name === c);
       const subList = catObj && catObj.subcategories ? catObj.subcategories : [];
       const hasSubs = subList.length > 0;
@@ -177,7 +177,7 @@ function renderNav() {
   // Collections Grid
   const colGrid = $('#collectionsGrid');
   if (colGrid) {
-    colGrid.innerHTML = CATEGORIES.map(c => `
+    colGrid.innerHTML = CATEGORIES.slice(0, 4).map(c => `
       <div class="col-card" data-cat="${esc(c.name)}">
         <img src="${esc(c.image)}" alt="${esc(c.name)}" class="col-card-bg" loading="lazy">
         <div class="col-card-overlay"></div>
@@ -265,6 +265,7 @@ function renderProducts() {
       </article>
     `;
   }).join('');
+  renderHomeFeatured();
 }
 
 let currentDetailProductId = null;
@@ -279,12 +280,40 @@ function productCardMarkup(p, compact = false) {
   </article>`;
 }
 
+function renderHomeFeatured() {
+  const grid = $('#homeFeaturedGrid');
+  if (!grid) return;
+  // Show a compact selection from different categories; the full catalogue lives on the Shop page.
+  const picks = [];
+  const seen = new Set();
+  for (const product of productsList) {
+    if (!seen.has(product.category)) {
+      picks.push(product);
+      seen.add(product.category);
+    }
+    if (picks.length >= 4) break;
+  }
+  grid.innerHTML = picks.map(p => productCardMarkup(p, false)).join('');
+}
+
+function openShopPage(category = 'All', subcategory = null) {
+  document.body.classList.remove('product-page-open', 'checkout-page-open');
+  document.body.classList.add('shop-page-open');
+  activeCategory = category || 'All';
+  activeSubcategory = subcategory || null;
+  const search = $('#productSearch');
+  if (search) search.value = '';
+  renderNav();
+  renderProducts();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function openProductPage(id) {
   const p = productsList.find(x => x.id === id);
   if (!p) return;
   currentDetailProductId = id;
   document.body.classList.remove('checkout-page-open');
-  document.body.classList.add('product-page-open');
+  document.body.classList.add('shop-page-open', 'product-page-open');
   renderProductDetail();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -458,7 +487,7 @@ function openFullCheckout() {
   if (!items.length) { showToast('Your cart is empty. Add a product first.', true); openDrawer('cart'); return; }
   closeDrawer();
   document.body.classList.remove('product-page-open');
-  document.body.classList.add('checkout-page-open');
+  document.body.classList.add('shop-page-open', 'checkout-page-open');
   renderCheckoutPage();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1051,10 +1080,12 @@ function openAuth(tab = 'signin') {
 function closeAuth() { document.body.classList.remove('auth-open'); }
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
+  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
   if (!t) return;
 
-  if (t.dataset.productView) {
+  if (t.hasAttribute('data-open-shop')) { e.preventDefault(); openShopPage('All'); }
+  else if (t.hasAttribute('data-go-home')) { e.preventDefault(); document.body.classList.remove('shop-page-open', 'product-page-open', 'checkout-page-open'); activeCategory = 'All'; activeSubcategory = null; renderNav(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  else if (t.dataset.productView) {
     if (t.matches('article') || !t.dataset.add) openProductPage(t.dataset.productView);
   }
   else if (t.dataset.viewAdd || t.dataset.detailAdd) {
@@ -1112,6 +1143,7 @@ document.addEventListener('click', e => {
   else if (t.id === 'editCheckoutInfo') { $('#checkoutFullName')?.focus(); $('#fullCheckoutForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
   else if (t.dataset.sub) {
     document.body.classList.remove('product-page-open', 'checkout-page-open');
+    document.body.classList.add('shop-page-open');
     activeCategory = t.dataset.cat;
     activeSubcategory = t.dataset.sub;
     renderNav();
@@ -1120,6 +1152,7 @@ document.addEventListener('click', e => {
   }
   else if (t.dataset.cat) {
     document.body.classList.remove('product-page-open', 'checkout-page-open');
+    document.body.classList.add('shop-page-open');
     activeCategory = t.dataset.cat;
     activeSubcategory = null;
     renderNav();
@@ -1373,9 +1406,9 @@ document.addEventListener('click', e => {
       showToast('Cover updated for ' + selCat + '!');
     }
   }
-  else if (t.id === 'brandHomeBtn') { document.body.classList.remove('product-page-open', 'checkout-page-open'); activeCategory = 'All'; activeSubcategory = null; renderNav(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-  else if (t.id === 'browseBtn') { closeDrawer(); $('#shop').scrollIntoView({ behavior: 'smooth' }); }
-  else if (t.id === 'heroShopBtn') { $('#shop').scrollIntoView({ behavior: 'smooth' }); }
+  else if (t.id === 'brandHomeBtn') { document.body.classList.remove('shop-page-open', 'product-page-open', 'checkout-page-open'); activeCategory = 'All'; activeSubcategory = null; renderNav(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  else if (t.id === 'browseBtn') { closeDrawer(); openShopPage('All'); }
+  else if (t.id === 'heroShopBtn') { e.preventDefault(); openShopPage('All'); }
   else if (t.id === 'heroWhatsAppBtn' || t.id === 'floatingWaBtn') {
     e.preventDefault();
     window.open('https://wa.me/' + CFG.wa + '?text=' + encodeURIComponent('Assalam-o-Alaikum Tryzn Store! I would like to place an order with Cash on Delivery (Free delivery over Rs. 4,999). Please share available items.'), '_blank');
@@ -1545,5 +1578,6 @@ document.addEventListener('keydown', e => {
   updateUserUI();
   renderNav();
   renderProducts();
+  renderHomeFeatured();
   updateCartBadge();
 })();
