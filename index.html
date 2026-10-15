@@ -506,8 +506,16 @@
       <button class="btn-block btn-dark" id="signInSubmitBtn" style="margin-top: 10px;">Sign In</button>
       <div style="border-top:1px solid var(--line); margin:18px 0 14px; padding-top:14px;">
         <p style="font-size:12px; color:var(--ink-muted); margin:0 0 10px;">Store administrator</p>
-        <div id="googleAdminSignInButton" aria-label="Admin sign in with Google"></div>
-        <div class="form-error" id="adminGoogleSignInError" role="status" aria-live="polite"></div>
+        <div class="form-group">
+          <label for="adminLoginEmail">Admin Email</label>
+          <input type="email" id="adminLoginEmail" placeholder="Admin email" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="adminLoginPass">Admin Password</label>
+          <input type="password" id="adminLoginPass" placeholder="Admin password" autocomplete="current-password">
+        </div>
+        <div class="form-error" id="adminLoginError" role="status" aria-live="polite"></div>
+        <button class="btn-block btn-dark" id="adminLoginBtn" style="margin-top:10px;">Admin Login</button>
       </div>
     </div>
 
@@ -900,12 +908,6 @@
 
 <div id="storeToast" role="status" aria-live="polite"></div>
 
-<script src="https://accounts.google.com/gsi/client"></script>
-<script>
-  // Public OAuth client ID only; never place client secrets here.
-  // Replace this value with your Google Cloud OAuth 2.0 Web client ID.
-  window.TRYZN_GOOGLE_CLIENT_ID = '';
-</script>
 <script src="script.js"></script>
 </body>
 </html>
