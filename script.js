@@ -124,23 +124,33 @@ function showToast(msg, isErr = false) {
 function renderNav() {
   const cats = ['All', ...CATEGORIES.map(c => c.name)];
   
-  // Header Nav Bar with Dropdown Submenus
+  // Header Nav Bar: Home | Shop | categories (no "All Products" link)
   const topNav = $('#topNav');
   if (topNav) {
-    topNav.innerHTML = `<div class="nav-item-wrapper"><a href="#shop" class="header-nav-link shop-nav-link" data-open-shop>Shop</a></div>` + cats.map(c => {
-      const catObj = CATEGORIES.find(x => x.name === c);
-      const subList = catObj && catObj.subcategories ? catObj.subcategories : [];
-      const hasSubs = subList.length > 0;
-      const isCatActive = c === activeCategory;
+    const shopOpen = document.body.classList.contains('shop-page-open');
+    const homeActive = !shopOpen;
+    const shopActive = shopOpen && activeCategory === 'All' && !activeSubcategory;
 
-      if (!hasSubs) {
+    const homeLink = `
+      <div class="nav-item-wrapper">
+        <a href="#" class="header-nav-link ${homeActive ? 'active' : ''}" data-go-home>Home</a>
+      </div>`;
+
+    const shopLink = `
+      <div class="nav-item-wrapper">
+        <a href="#shop" class="header-nav-link shop-nav-link ${shopActive ? 'active' : ''}" data-open-shop>Shop</a>
+      </div>`;
+
+    const catLinks = CATEGORIES.map(catObj => {
+      const c = catObj.name;
+      const subList = catObj.subcategories || [];
+      const isCatActive = shopOpen && c === activeCategory;
+
+      if (!subList.length) {
         return `
           <div class="nav-item-wrapper">
-            <a href="#shop" class="header-nav-link ${isCatActive ? 'active' : ''}" data-cat="${esc(c)}">
-              ${c === 'All' ? 'All Products' : esc(c)}
-            </a>
-          </div>
-        `;
+            <a href="#shop" class="header-nav-link ${isCatActive ? 'active' : ''}" data-cat="${esc(c)}">${esc(c)}</a>
+          </div>`;
       }
 
       return `
@@ -150,18 +160,13 @@ function renderNav() {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:2px;"><polyline points="6 9 12 15 18 9"/></svg>
           </a>
           <div class="nav-dropdown-menu">
-            <a href="#shop" class="nav-dropdown-item" data-cat="${esc(c)}" style="font-weight:700; border-bottom: 1px solid var(--line); margin-bottom: 4px;">
-              View All ${esc(c)}
-            </a>
-            ${subList.map(s => `
-              <a href="#shop" class="nav-dropdown-item" data-cat="${esc(c)}" data-sub="${esc(s)}">
-                ${esc(s)}
-              </a>
-            `).join('')}
+            <a href="#shop" class="nav-dropdown-item" data-cat="${esc(c)}" style="font-weight:700; border-bottom: 1px solid var(--line); margin-bottom: 4px;">View All ${esc(c)}</a>
+            ${subList.map(s => `<a href="#shop" class="nav-dropdown-item" data-cat="${esc(c)}" data-sub="${esc(s)}">${esc(s)}</a>`).join('')}
           </div>
-        </div>
-      `;
+        </div>`;
     }).join('');
+
+    topNav.innerHTML = homeLink + shopLink + catLinks;
   }
 
   // Shop Filter Pills
