@@ -1867,3 +1867,33 @@ body.product-page-open .floating-wa, body.checkout-page-open .floating-wa { disp
   .review-form-card, .customer-review-card { padding: 16px; }
   .customer-review-media { width: min(125px, 45%); height: 125px; }
 }
+
+/* Separate Shop page: keep the homepage curated and the full catalogue on its own view. */
+#shop { display: none; }
+body.shop-page-open #shop { display: block; }
+body.shop-page-open #heroSection,
+body.shop-page-open #collectionsSection,
+body.shop-page-open #homeFeaturedSection { display: none !important; }
+body.shop-page-open #productPage,
+body.shop-page-open #checkoutPage { display: none; }
+body.product-page-open #homeFeaturedSection,
+body.checkout-page-open #homeFeaturedSection { display: none !important; }
+body.product-page-open #shop,
+body.checkout-page-open #shop { display: none !important; }
+body.product-page-open #productPage,
+body.checkout-page-open #checkoutPage { display: block; }
+.home-collections-action { display: flex; justify-content: center; margin-top: 24px; }
+.home-collections-action .btn-outline { padding: 12px 22px; }
+.home-featured-section { padding-top: 18px; padding-bottom: 52px; }
+.home-featured-section .section-header { align-items: center; }
+.home-featured-section .section-header > .btn-outline { flex-shrink: 0; }
+.shop-page-heading { display: flex; align-items: center; justify-content: space-between; padding: 20px 0 6px; }
+.shop-nav-link { font-weight: 800 !important; }
+body.shop-page-open .header-nav-link.shop-nav-link { color: var(--accent); }
+@media (max-width: 720px) {
+  .home-collections-action { margin-top: 16px; }
+  .home-featured-section { padding-top: 8px; padding-bottom: 34px; }
+  .home-featured-section .section-header { align-items: flex-start; flex-direction: column; }
+  .home-featured-section .section-header > .btn-outline { padding: 9px 13px; }
+  .shop-page-heading { padding-top: 14px; }
+}
