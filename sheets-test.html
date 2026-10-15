@@ -1,0 +1,80 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tryzn Sheets Connection Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+    button {
+      padding: 12px 18px;
+      border: 0;
+      border-radius: 8px;
+      background: #1e293b;
+      color: white;
+      cursor: pointer;
+    }
+    pre {
+      padding: 16px;
+      border-radius: 8px;
+      background: #e2e8f0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tryzn Store</h1>
+  <p>Google Sheets connection test</p>
+
+  <button id="testButton">Test Connection</button>
+  <pre id="result">Not tested yet.</pre>
+
+  <script>
+    const API_URL =
+      "https://script.google.com/macros/s/AKfycbzoJJ-w-pUIg5_RBcl0X_asVmm2fQOsz8Z16jNRCSyKZVPmecvbZtXQ_52QI1kvHlBg/exec";
+
+    document.getElementById("testButton").addEventListener("click", async () => {
+      const output = document.getElementById("result");
+      output.textContent = "Connecting to Google Sheets...";
+
+      try {
+        const response = await fetch(
+          API_URL + "?action=products",
+          { method: "GET", redirect: "follow" }
+        );
+
+        if (!response.ok) {
+          throw new Error("HTTP status: " + response.status);
+        }
+
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error || "The API reported a failure.");
+        }
+
+        output.textContent =
+          "CONNECTED SUCCESSFULLY\n\n" +
+          "Products found: " + data.count + "\n\n" +
+          JSON.stringify(data.products, null, 2);
+
+      } catch (error) {
+        output.textContent =
+          "CONNECTION FAILED\n\n" +
+          error.message +
+          "\n\nCheck the browser console for details.";
+        console.error("Tryzn Sheets API error:", error);
+      }
+    });
+  </script>
+</body>
+</html>
