@@ -4,75 +4,111 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tryzn Sheets Connection Test</title>
+  <title>Tryzn Store - Google Sheets Test</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 700px;
+      max-width: 800px;
       margin: 50px auto;
       padding: 20px;
       background: #f8fafc;
       color: #1e293b;
     }
+
+    h1 {
+      margin-bottom: 8px;
+    }
+
     button {
-      padding: 12px 18px;
-      border: 0;
+      padding: 12px 20px;
+      border: none;
       border-radius: 8px;
       background: #1e293b;
       color: white;
+      font-size: 15px;
       cursor: pointer;
     }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
     pre {
-      padding: 16px;
+      margin-top: 20px;
+      padding: 18px;
       border-radius: 8px;
       background: #e2e8f0;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
+      line-height: 1.5;
     }
   </style>
 </head>
+
 <body>
   <h1>Tryzn Store</h1>
-  <p>Google Sheets connection test</p>
+  <p>Google Sheets API connection test</p>
 
   <button id="testButton">Test Connection</button>
-  <pre id="result">Not tested yet.</pre>
+
+  <pre id="result">Click the button to test your connection.</pre>
 
   <script>
     const API_URL =
       "https://script.google.com/macros/s/AKfycbzoJJ-w-pUIg5_RBcl0X_asVmm2fQOsz8Z16jNRCSyKZVPmecvbZtXQ_52QI1kvHlBg/exec";
 
-    document.getElementById("testButton").addEventListener("click", async () => {
-      const output = document.getElementById("result");
+    const testButton = document.getElementById("testButton");
+    const output = document.getElementById("result");
+
+    testButton.addEventListener("click", async function () {
+      testButton.disabled = true;
       output.textContent = "Connecting to Google Sheets...";
 
       try {
         const response = await fetch(
           API_URL + "?action=products",
-          { method: "GET", redirect: "follow" }
+          {
+            method: "GET",
+            redirect: "follow"
+          }
         );
 
         if (!response.ok) {
           throw new Error("HTTP status: " + response.status);
         }
 
-        const data = await response.json();
+        const responseText = await response.text();
 
-        if (!data.success) {
-          throw new Error(data.error || "The API reported a failure.");
+        let data;
+
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          throw new Error(
+            "The API did not return valid JSON:\n" +
+            responseText.slice(0, 1000)
+          );
         }
 
         output.textContent =
           "CONNECTED SUCCESSFULLY\n\n" +
-          "Products found: " + data.count + "\n\n" +
-          JSON.stringify(data.products, null, 2);
+          "FULL API RESPONSE:\n\n" +
+          JSON.stringify(data, null, 2);
+
+        console.log("Tryzn API response:", data);
 
       } catch (error) {
         output.textContent =
           "CONNECTION FAILED\n\n" +
           error.message +
-          "\n\nCheck the browser console for details.";
-        console.error("Tryzn Sheets API error:", error);
+          "\n\nOpen browser Developer Tools (F12) → Console for details.";
+
+        console.error("Tryzn API error:", error);
+
+      } finally {
+        testButton.disabled = false;
       }
     });
   </script>
