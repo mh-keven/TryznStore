@@ -290,11 +290,10 @@ function verifyGoogleAdminToken_(credential) {
     throw new Error("Admin authentication is not configured. Set GOOGLE_CLIENT_ID and ADMIN_EMAILS in Apps Script Script properties.");
   }
 
-  const response = UrlFetchApp.fetch("https://oauth2.googleapis.com/tokeninfo", {
-    method: "post",
-    payload: {id_token: token},
-    muteHttpExceptions: true
-  });
+  const response = UrlFetchApp.fetch(
+    "https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(token),
+    {method: "get", muteHttpExceptions: true}
+  );
   if (response.getResponseCode() !== 200) throw new Error("Google sign-in token could not be verified.");
 
   const claims = JSON.parse(response.getContentText());
