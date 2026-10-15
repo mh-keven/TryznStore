@@ -95,6 +95,8 @@ const PK_CITIES = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad',
 let activeCategory = 'All';
 let activeSubcategory = null;
 let cart = storage.get('tryzn_cart', {});
+let promoCodes = storage.get('tryzn_promo_codes', []);
+let appliedPromoCode = storage.get('tryzn_applied_promo', null);
 let productsList = storage.get('tryzn_products', null);
 if (!productsList || productsList.length < 10) {
   productsList = DEFAULT_PRODUCTS;
@@ -344,7 +346,12 @@ function renderCheckoutPage() {
   const packageTarget = $('#checkoutPackageItems');
   if (packageTarget) packageTarget.innerHTML = items.length ? items.map(({ product: p, qty }) => `<div class="checkout-package-item"><img src="${esc(p.image)}" alt="${esc(p.name)}"><div class="checkout-package-product"><strong>${esc(p.name)}</strong><span>${esc(p.category)}${p.subcategory ? ' · ' + esc(p.subcategory) : ''}</span><small>Qty: <b>${qty}</b></small></div><div class="checkout-package-price"><strong>${formatMoney(p.price * qty)}</strong>${p.oldPrice > p.price ? `<del>${formatMoney(p.oldPrice * qty)}</del>` : ''}</div></div>`).join('') : '<p>Your cart is empty.</p>';
   const totalsTarget = $('#checkoutTotals');
-  if (totalsTarget) totalsTarget.innerHTML = `<div><span>Items Total (${totals.count} ${totals.count === 1 ? 'item' : 'items'})</span><strong>${formatMoney(totals.subtotal)}</strong></div><div><span>Delivery Fee</span><strong>${totals.isFree ? '<em>FREE</em>' : formatMoney(totals.shipping)}</strong></div><div class="checkout-grand-total"><span>Total <small>VAT included, where applicable</small></span><strong>${formatMoney(totals.total)}</strong></div>`;
+  if (totalsTarget) totalsTarget.innerHTML = `<div><span>Items Total (${totals.count} ${totals.count === 1 ? 'item' : 'items'})</span><strong>${formatMoney(totals.subtotal)}</strong></div>${totals.discount ? `<div><span>Promo discount (${esc(totals.promo.code)} · ${totals.promo.percent}%)</span><strong>−${formatMoney(totals.discount)}</strong></div>` : ''}<div><span>Delivery Fee</span><strong>${totals.isFree ? '<em>FREE</em>' : formatMoney(totals.shipping)}</strong></div><div class="checkout-grand-total"><span>Total <small>VAT included, where applicable</small></span><strong>${formatMoney(totals.total)}</strong></div>`;
+  const promoInput = $('#checkoutPromoCode');
+  if (promoInput && appliedPromoCode && !promoInput.value) promoInput.value = appliedPromoCode;
+  const feedback = $('#checkoutPromoFeedback');
+  if (feedback && totals.promo && totals.discount) { feedback.classList.remove('is-error'); feedback.textContent = `${totals.promo.code} applied — you save ${formatMoney(totals.discount)}.`; }
+  else if (feedback && appliedPromoCode && !totals.discount) { feedback.classList.add('is-error'); feedback.textContent = 'This code does not apply to the products in your cart.'; }
 }
 
 function saveCheckoutAddress() {
@@ -368,7 +375,13 @@ function getTotals() {
   const subtotal = items.reduce((acc, i) => acc + (i.product.price * i.qty), 0);
   const isFree = subtotal >= CFG.freeShippingOver || subtotal === 0;
   const shipping = isFree ? 0 : CFG.shippingFee;
-  return { subtotal, shipping, total: subtotal + shipping, isFree, count: items.reduce((acc, i) => acc + i.qty, 0) };
+  const promo = appliedPromoCode ? promoCodes.find(c => c.code === appliedPromoCode && c.active !== false) : null;
+  const eligibleSubtotal = promo ? items.reduce((sum, i) => {
+    const eligible = (!promo.category || i.product.category === promo.category) && (!promo.productId || i.product.id === promo.productId);
+    return sum + (eligible ? i.product.price * i.qty : 0);
+  }, 0) : 0;
+  const discount = promo && eligibleSubtotal > 0 ? Math.round(eligibleSubtotal * promo.percent / 100) : 0;
+  return { subtotal, discount, promo, shipping, total: Math.max(0, subtotal - discount) + shipping, isFree, count: items.reduce((acc, i) => acc + i.qty, 0) };
 }
 
 function updateCartBadge() {
@@ -519,13 +532,15 @@ function handleCheckoutSubmit(mode = 'drawer') {
     time: new Date().toISOString().replace('T', ' ').slice(0, 16),
     name, phone, city, province, area, street, locality, address, addressLabel: label,
     items: items.map(i => ({ id: i.product.id, name: i.product.name, qty: i.qty, price: i.product.price })),
-    subtotal: totals.subtotal, shipping: totals.shipping, total: totals.total, status: 'New'
+    subtotal: totals.subtotal, discount: totals.discount || 0, promoCode: totals.promo?.code || '', shipping: totals.shipping, total: totals.total, status: 'New'
   };
   ordersList.unshift(order);
   storage.set('tryzn_orders', ordersList);
   lastPlacedOrder = order;
   if (full) saveCheckoutAddress();
   cart = {};
+  appliedPromoCode = null;
+  storage.set('tryzn_applied_promo', null);
   storage.set('tryzn_cart', cart);
   updateCartBadge();
   closeDrawer();
@@ -552,7 +567,7 @@ Delivery Address: ${order.address}
 ${order.items.map(i => `• ${i.qty}x ${i.name} (${formatMoney(i.price)})`).join('\n')}
 
 Subtotal: ${formatMoney(order.subtotal || order.total)}
-Delivery Fee: ${order.shipping === 0 ? 'FREE' : formatMoney(order.shipping || 0)}
+${order.discount ? `Promo Code (${order.promoCode}): -${formatMoney(order.discount)}\n` : ''}Delivery Fee: ${order.shipping === 0 ? 'FREE' : formatMoney(order.shipping || 0)}
 *Total (Cash On Delivery):* ${formatMoney(order.total)}
 ${isFree ? '✅ *FREE DELIVERY APPLIED (Above Rs. 4,999)*' : '🚚 Courier Fee: Rs. 200 (Nationwide TCS / Leopards)'}
 
@@ -740,6 +755,38 @@ function renderAdminCategories() {
   }
 }
 
+function refreshDiscountProductOptions() {
+  const category = $('#discCategoryFilter')?.value || '';
+  const query = ($('#discProductSearch')?.value || '').trim().toLowerCase();
+  const select = $('#discProdSelect');
+  if (select) {
+    const filtered = productsList.filter(p => (!category || p.category === category) && (!query || p.name.toLowerCase().includes(query)));
+    const current = select.value;
+    select.innerHTML = filtered.map(p => `<option value="${esc(p.id)}">${esc(p.name)} — ${formatMoney(p.price)}</option>`).join('') || '<option value="">No matching products</option>';
+    if (filtered.some(p => p.id === current)) select.value = current;
+  }
+  const promoCategory = $('#promoAdminCategory')?.value || '';
+  const promoQuery = ($('#promoAdminProductSearch')?.value || '').trim().toLowerCase();
+  const promoSelect = $('#promoAdminProduct');
+  if (promoSelect) {
+    const current = promoSelect.value;
+    const filtered = productsList.filter(p => (!promoCategory || p.category === promoCategory) && (!promoQuery || p.name.toLowerCase().includes(promoQuery)));
+    promoSelect.innerHTML = '<option value="">All products</option>' + filtered.map(p => `<option value="${esc(p.id)}">${esc(p.name)} — ${esc(p.category)}</option>`).join('');
+    if (filtered.some(p => p.id === current)) promoSelect.value = current;
+  }
+}
+
+function renderPromoCodes() {
+  const target = $('#adminPromoCodesList');
+  if (!target) return;
+  if (!promoCodes.length) { target.innerHTML = '<p class="muted">No promo codes created yet.</p>'; return; }
+  target.innerHTML = `<div class="promo-table-wrap"><table class="promo-table"><thead><tr><th>Code</th><th>Discount</th><th>Applies to</th><th>Created</th><th>Action</th></tr></thead><tbody>${promoCodes.map(c => {
+    const product = c.productId ? productsList.find(p => p.id === c.productId) : null;
+    const applies = product ? product.name : (c.category ? `${c.category} category` : 'All products');
+    return `<tr><td><span class="promo-code-chip">${esc(c.code)}</span></td><td><b>${Number(c.percent)}%</b></td><td>${esc(applies)}</td><td>${esc(c.createdAt || '—')}</td><td><button type="button" class="promo-delete-btn" data-delete-promo="${esc(c.code)}">Delete</button></td></tr>`;
+  }).join('')}</tbody></table></div>`;
+}
+
 function renderAdmin() {
   $('#admTotalOrders').textContent = ordersList.length;
   const rev = ordersList.reduce((acc, o) => acc + (o.total || 0), 0);
@@ -814,11 +861,13 @@ function renderAdmin() {
     updateBulkDelCount();
   }
 
-  if ($('#discProdSelect')) {
-    $('#discProdSelect').innerHTML = productsList.map(p => `
-      <option value="${esc(p.id)}">${esc(p.name)} — Current: ${formatMoney(p.price)}</option>
-    `).join('');
-  }
+  const categoryOptions = '<option value="">All categories</option>' + CATEGORIES.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+  ['discCategoryFilter', 'promoAdminCategory'].forEach(id => {
+    const el = $('#' + id);
+    if (el) { const previous = el.value; el.innerHTML = categoryOptions; if ([...el.options].some(o => o.value === previous)) el.value = previous; }
+  });
+  refreshDiscountProductOptions();
+  renderPromoCodes();
 
   if ($('#editHeroTitle')) $('#editHeroTitle').value = $('#heroHeading').textContent;
   if ($('#editHeroSub')) $('#editHeroSub').value = $('#heroSubheading').textContent;
@@ -867,7 +916,7 @@ function openAuth(tab = 'signin') {
 function closeAuth() { document.body.classList.remove('auth-open'); }
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
+  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
   if (!t) return;
 
   if (t.dataset.productView) {
@@ -894,7 +943,37 @@ document.addEventListener('click', e => {
   }
   else if (t.id === 'placeFullOrderBtn') handleCheckoutSubmit('full');
   else if (t.id === 'saveCheckoutAddressBtn') saveCheckoutAddress();
-  else if (t.id === 'applyCheckoutPromo') showToast('No active promotion code is available right now.', true);
+  else if (t.id === 'applyCheckoutPromo') {
+    const code = ($('#checkoutPromoCode')?.value || '').trim().toUpperCase();
+    const feedback = $('#checkoutPromoFeedback');
+    const promo = promoCodes.find(c => c.code === code && c.active !== false);
+    if (!code) { appliedPromoCode = null; storage.set('tryzn_applied_promo', null); if (feedback) { feedback.classList.remove('is-error'); feedback.textContent = 'Enter a promo code first.'; } showToast('Enter a promo code first.', true); renderCheckoutPage(); return; }
+    if (!promo) { appliedPromoCode = null; storage.set('tryzn_applied_promo', null); if (feedback) { feedback.classList.add('is-error'); feedback.textContent = 'That promo code is invalid or inactive.'; } showToast('Invalid promo code.', true); renderCheckoutPage(); return; }
+    const items = getCartItems();
+    const eligible = items.some(i => (!promo.category || i.product.category === promo.category) && (!promo.productId || i.product.id === promo.productId));
+    if (!eligible) { appliedPromoCode = null; storage.set('tryzn_applied_promo', null); if (feedback) { feedback.classList.add('is-error'); feedback.textContent = 'This code is only valid for its selected product/category.'; } showToast('Promo code does not apply to these items.', true); renderCheckoutPage(); return; }
+    appliedPromoCode = promo.code; storage.set('tryzn_applied_promo', appliedPromoCode); renderCheckoutPage(); showToast('Promo code applied successfully!');
+  }
+  else if (t.id === 'createPromoCodeBtn') {
+    const code = ($('#promoAdminCode')?.value || '').trim().toUpperCase().replace(/\s+/g, '');
+    const percent = Number($('#promoAdminPercent')?.value || 0);
+    const category = $('#promoAdminCategory')?.value || '';
+    const productId = $('#promoAdminProduct')?.value || '';
+    if (!/^[A-Z0-9_-]{3,24}$/.test(code)) { showToast('Use 3–24 letters, numbers, hyphens or underscores for the code.', true); return; }
+    if (!Number.isFinite(percent) || percent < 1 || percent > 90) { showToast('Enter a discount between 1% and 90%.', true); return; }
+    if (promoCodes.some(c => c.code === code)) { showToast('That promo code already exists.', true); return; }
+    const product = productId ? productsList.find(p => p.id === productId) : null;
+    promoCodes.unshift({ code, percent, category: product ? '' : category, productId: product ? product.id : '', createdAt: new Date().toLocaleDateString('en-GB'), active: true });
+    storage.set('tryzn_promo_codes', promoCodes); renderPromoCodes();
+    $('#promoAdminCode').value = ''; $('#promoAdminPercent').value = ''; $('#promoAdminProductSearch').value = ''; $('#promoAdminProduct').value = '';
+    showToast('Promo code ' + code + ' created!');
+  }
+  else if (t.dataset.deletePromo) {
+    const code = t.dataset.deletePromo;
+    promoCodes = promoCodes.filter(c => c.code !== code); storage.set('tryzn_promo_codes', promoCodes);
+    if (appliedPromoCode === code) { appliedPromoCode = null; storage.set('tryzn_applied_promo', null); }
+    renderPromoCodes(); showToast('Promo code ' + code + ' deleted.');
+  }
   else if (t.id === 'editCheckoutInfo') { $('#checkoutFullName')?.focus(); $('#fullCheckoutForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
   else if (t.dataset.sub) {
     document.body.classList.remove('product-page-open', 'checkout-page-open');
@@ -1303,6 +1382,10 @@ if (clearMediaBtn) {
 
 const searchInput = $('#productSearch');
 if (searchInput) searchInput.addEventListener('input', renderProducts);
+$('#discCategoryFilter')?.addEventListener('change', refreshDiscountProductOptions);
+$('#discProductSearch')?.addEventListener('input', refreshDiscountProductOptions);
+$('#promoAdminCategory')?.addEventListener('change', refreshDiscountProductOptions);
+$('#promoAdminProductSearch')?.addEventListener('input', refreshDiscountProductOptions);
 
 document.addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-product-view]')) { e.preventDefault(); openProductPage(e.target.dataset.productView); }
