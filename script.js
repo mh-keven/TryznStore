@@ -767,7 +767,7 @@ function openAuth(tab = 'signin') {
 function closeAuth() { document.body.classList.remove('auth-open'); }
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn');
+  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #closeAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn');
   if (!t) return;
 
   if (t.dataset.sub) {
@@ -929,6 +929,7 @@ document.addEventListener('click', e => {
   else if (t.id === 'cartBtn') openDrawer('cart');
   else if (t.id === 'closeDrawerBtn' || t.id === 'drawerOverlay') closeDrawer();
   else if (t.id === 'closeModalBtn' || t.id === 'modalOverlay') closeModal();
+  else if (t.id === 'closeAuthBtn') closeAuth();
   else if (t.id === 'openAuthBtn' || t.id === 'footerPortalBtn') {
     if (isAdminLoggedIn) openAdminModal();
     else openAuth('signin');
