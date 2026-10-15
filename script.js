@@ -152,7 +152,16 @@ async function loadProductsFromSheets() {
       return;
     }
 
-    productsList = sheetProducts;
+    // Merge Sheet products into the existing catalogue instead of replacing it.
+    // This preserves the existing collections/categories while the Sheet is being populated.
+    const productMap = new Map(DEFAULT_PRODUCTS.map(product => [String(product.id), product]));
+    for (const product of sheetProducts) {
+      productMap.set(String(product.id), {
+        ...(productMap.get(String(product.id)) || {}),
+        ...product
+      });
+    }
+    productsList = Array.from(productMap.values());
     storage.set('tryzn_products', productsList);
 
     // Refresh every storefront view that depends on the product catalogue.
@@ -169,7 +178,6 @@ async function loadProductsFromSheets() {
   }
 }
 
-}
 let ordersList = storage.get('tryzn_orders', [
   { id: 'TZ-910482', time: '2026-10-15 11:20', name: 'Hamza Malik', phone: '0301-8472910', city: 'Lahore', address: 'House 42, Block C, Model Town', items: [{ id: 'm1', name: 'Old Money Textured Knitted Polo', qty: 1, price: 2790 }], total: 2990, status: 'New' }
 ]);
