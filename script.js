@@ -22,7 +22,7 @@ const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 
 /* Configuration for Pakistan Domestic Dropshipping */
 const CFG = {
-  // Read-only Google Sheets product endpoint. Orders/promos/admin writes need backend endpoints.
+  // Google Apps Script web app endpoint for products, promos, orders, and customer profiles.
   api: 'https://script.google.com/macros/s/AKfycbzoJJ-w-pUIg5_RBcl0X_asVmm2fQOsz8Z16jNRCSyKZVPmecvbZtXQ_52QI1kvHlBg/exec',
   wa: '923278081874',
   currency: 'Rs.',
@@ -109,6 +109,57 @@ let productsList = storage.get('tryzn_products', null);
 if (!productsList || productsList.length < 10) {
   productsList = DEFAULT_PRODUCTS;
   storage.set('tryzn_products', productsList);
+}
+
+// Google Sheets API helpers. Customer passwords must never be sent to Sheets.
+async function readSheetsAction(action) {
+  if (!CFG.api) return null;
+  const response = await fetch(CFG.api + '?action=' + encodeURIComponent(action));
+  if (!response.ok) throw new Error('Google Sheets request failed: ' + action);
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || 'Google Sheets request failed: ' + action);
+  return data;
+}
+
+async function writeSheetsAction(payload) {
+  if (!CFG.api) return null;
+  const response = await fetch(CFG.api, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json();
+  if (!response.ok || !data.success) throw new Error((data && data.error) || 'Google Sheets write failed');
+  return data;
+}
+
+async function loadPromoCodesFromSheets() {
+  try {
+    const data = await readSheetsAction('promocodes');
+    if (!Array.isArray(data.promoCodes)) return;
+    promoCodes = data.promoCodes.map(p => ({
+      code: String(p.promo_code || '').trim().toUpperCase(),
+      percent: Number(p.discount_value) || 0,
+      discountType: String(p.discount_type || 'percentage').toLowerCase(),
+      minOrder: Number(p.min_order) || 0,
+      maxDiscount: Number(p.max_discount) || 0,
+      category: Array.isArray(p.applicable_categories) ? (p.applicable_categories[0] || '') : '',
+      categories: Array.isArray(p.applicable_categories) ? p.applicable_categories : [],
+      productId: Array.isArray(p.applicable_product_ids) ? (p.applicable_product_ids[0] || '') : '',
+      productIds: Array.isArray(p.applicable_product_ids) ? p.applicable_product_ids : [],
+      usageLimit: Number(p.usage_limit) || 0,
+      usedCount: Number(p.used_count) || 0,
+      active: p.active === true || String(p.active).toLowerCase() === 'true',
+      startsAt: p.starts_at || '',
+      expiresAt: p.expires_at || '',
+      createdAt: p.created_at || ''
+    })).filter(p => p.code && p.active && p.discountType === 'percentage');
+    storage.set('tryzn_promo_codes', promoCodes);
+    if (typeof renderPromoCodes === 'function') renderPromoCodes();
+    console.log('Loaded promo codes from Google Sheets:', promoCodes.length);
+  } catch (error) {
+    console.warn('Google Sheets promo loading failed; using locally cached promos.', error);
+  }
 }
 
 // Google Sheets product API
@@ -789,6 +840,27 @@ function handleCheckoutSubmit(mode = 'drawer') {
   };
   ordersList.unshift(order);
   storage.set('tryzn_orders', ordersList);
+  writeSheetsAction({
+    action: 'createOrder',
+    order: {
+      order_id: order.id,
+      customer_name: order.name,
+      phone: order.phone,
+      email: currentUser && currentUser.email ? currentUser.email : '',
+      city: order.city,
+      address: order.address,
+      items: order.items,
+      subtotal: order.subtotal,
+      discount: order.discount,
+      promo_code: order.promoCode,
+      shipping_fee: order.shipping,
+      total: order.total,
+      payment_method: 'Cash on Delivery',
+      status: order.status,
+      notes: ''
+    }
+  }).then(() => console.log('Order synced to Google Sheets:', order.id))
+    .catch(error => console.error('Order remains in local storage; Google Sheets sync failed:', error));
   lastPlacedOrder = order;
   if (full) saveCheckoutAddress();
   cart = {};
@@ -928,11 +1000,18 @@ function handleCustomerRegister() {
   }
 
   err.textContent = '';
+  // Passwords stay in this browser only; never send them to Google Sheets.
   currentUser = { name, email, pass, phone, city, address };
   registeredUsers.push(currentUser);
   storage.set('tryzn_registered_users', registeredUsers);
   storage.set('tryzn_user', currentUser);
-  
+
+  writeSheetsAction({
+    action: 'upsertCustomer',
+    customer: { full_name: name, email, phone, default_city: city, default_address: address, active: true }
+  }).then(() => console.log('Customer profile synced to Google Sheets:', email))
+    .catch(error => console.error('Customer profile remains local; Google Sheets sync failed:', error));
+
   updateUserUI();
   closeAuth();
   showToast('Account successfully created and signed in!');
@@ -1195,8 +1274,17 @@ document.addEventListener('click', e => {
     if (!code) { appliedPromoCode = null; storage.set('tryzn_applied_promo', null); if (feedback) { feedback.classList.remove('is-error'); feedback.textContent = 'Enter a promo code first.'; } showToast('Enter a promo code first.', true); renderCheckoutPage(); return; }
     if (!promo) { appliedPromoCode = null; storage.set('tryzn_applied_promo', null); if (feedback) { feedback.classList.add('is-error'); feedback.textContent = 'That promo code is invalid or inactive.'; } showToast('Invalid promo code.', true); renderCheckoutPage(); return; }
     const items = getCartItems();
-    const eligible = items.some(i => (!promo.category || i.product.category === promo.category) && (!promo.productId || i.product.id === promo.productId));
+    const eligible = (!promo.category && !promo.productId && !(promo.categories || []).length && !(promo.productIds || []).length) || items.some(i => {
+      const categories = promo.categories || (promo.category ? [promo.category] : []);
+      const productIds = promo.productIds || (promo.productId ? [promo.productId] : []);
+      return (!categories.length || categories.includes(i.product.category)) && (!productIds.length || productIds.includes(i.product.id));
+    });
     if (!eligible) { appliedPromoCode = null; storage.set('tryzn_applied_promo', null); if (feedback) { feedback.classList.add('is-error'); feedback.textContent = 'This code is only valid for its selected product/category.'; } showToast('Promo code does not apply to these items.', true); renderCheckoutPage(); return; }
+    if (promo.minOrder && getTotals().subtotal < promo.minOrder) { if (feedback) { feedback.classList.add('is-error'); feedback.textContent = 'This code requires a minimum order of ' + formatMoney(promo.minOrder) + '.'; } showToast('Minimum order not reached for this code.', true); return; }
+    if (promo.usageLimit && promo.usedCount >= promo.usageLimit) { if (feedback) { feedback.classList.add('is-error'); feedback.textContent = 'This promo code has reached its usage limit.'; } showToast('This promo code has reached its usage limit.', true); return; }
+    const now = Date.now();
+    if (promo.startsAt && Date.parse(promo.startsAt) > now) { showToast('This promo code is not active yet.', true); return; }
+    if (promo.expiresAt && Date.parse(promo.expiresAt) < now) { showToast('This promo code has expired.', true); return; }
     appliedPromoCode = promo.code; storage.set('tryzn_applied_promo', appliedPromoCode); renderCheckoutPage(); showToast('Promo code applied successfully!');
   }
   else if (t.id === 'createPromoCodeBtn') {
@@ -1660,4 +1748,5 @@ document.addEventListener('keydown', e => {
   renderHomeFeatured();
   updateCartBadge();
   loadProductsFromSheets();
+  loadPromoCodesFromSheets();
 })();
