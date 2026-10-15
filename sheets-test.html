@@ -1,116 +1,337 @@
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tryzn Store - Google Sheets Test</title>
+/**
+ * TRYZN STORE PAKISTAN
+ * Google Sheets Database + Read-Only Products API
+ *
+ * Sheets:
+ * 1. Products
+ * 2. Orders
+ * 3. Customers
+ * 4. PromoCodes
+ * 5. AdminLogs
+ *
+ * Current API:
+ * GET /exec?action=products
+ *
+ * This version does not include public write operations.
+ */
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 800px;
-      margin: 50px auto;
-      padding: 20px;
-      background: #f8fafc;
-      color: #1e293b;
-    }
+const TRZ_DATABASE = {
+  Products: [
+    "product_id",
+    "name",
+    "category",
+    "subcategory",
+    "price",
+    "old_price",
+    "rating",
+    "reviews",
+    "stock",
+    "badge",
+    "image",
+    "description",
+    "active",
+    "created_at",
+    "updated_at"
+  ],
 
-    h1 {
-      margin-bottom: 8px;
-    }
+  Orders: [
+    "order_id",
+    "created_at",
+    "customer_id",
+    "customer_name",
+    "phone",
+    "email",
+    "city",
+    "address",
+    "items_json",
+    "subtotal",
+    "discount",
+    "shipping_fee",
+    "total",
+    "payment_method",
+    "status",
+    "tracking_number",
+    "notes",
+    "updated_at"
+  ],
 
-    button {
-      padding: 12px 20px;
-      border: none;
-      border-radius: 8px;
-      background: #1e293b;
-      color: white;
-      font-size: 15px;
-      cursor: pointer;
-    }
+  Customers: [
+    "customer_id",
+    "created_at",
+    "full_name",
+    "email",
+    "phone",
+    "default_city",
+    "default_address",
+    "postal_code",
+    "active",
+    "updated_at"
+  ],
 
-    button:disabled {
-      opacity: 0.6;
-      cursor: wait;
-    }
+  PromoCodes: [
+    "promo_code",
+    "discount_type",
+    "discount_value",
+    "min_order",
+    "max_discount",
+    "applicable_categories_json",
+    "applicable_product_ids_json",
+    "usage_limit",
+    "used_count",
+    "starts_at",
+    "expires_at",
+    "active",
+    "created_at",
+    "updated_at"
+  ],
 
-    pre {
-      margin-top: 20px;
-      padding: 18px;
-      border-radius: 8px;
-      background: #e2e8f0;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      line-height: 1.5;
-    }
-  </style>
-</head>
+  AdminLogs: [
+    "log_id",
+    "timestamp",
+    "admin_identifier",
+    "action",
+    "entity_type",
+    "entity_id",
+    "details_json",
+    "result"
+  ]
+};
 
-<body>
-  <h1>Tryzn Store</h1>
-  <p>Google Sheets API connection test</p>
 
-  <button id="testButton">Test Connection</button>
+/**
+ * Run this function manually once to create the database.
+ * Existing data is not cleared.
+ */
+function setupTryznDatabase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  <pre id="result">Click the button to test your connection.</pre>
+  if (!ss) {
+    throw new Error(
+      "No spreadsheet found. Open Apps Script from your Google Sheet."
+    );
+  }
 
-  <script>
-    const API_URL =
-      "https://script.google.com/macros/s/AKfycbzoJJ-w-pUIg5_RBcl0X_asVmm2fQOsz8Z16jNRCSyKZVPmecvbZtXQ_52QI1kvHlBg/exec";
+  const createdSheets = [];
+  const headersAdded = [];
+  const existingSheets = [];
 
-    const testButton = document.getElementById("testButton");
-    const output = document.getElementById("result");
+  Object.keys(TRZ_DATABASE).forEach(function (sheetName) {
+    let sheet = ss.getSheetByName(sheetName);
 
-    testButton.addEventListener("click", async function () {
-      testButton.disabled = true;
-      output.textContent = "Connecting to Google Sheets...";
+    if (!sheet) {
+      const sheets = ss.getSheets();
 
-      try {
-        const response = await fetch(
-          API_URL + "?action=products",
-          {
-            method: "GET",
-            redirect: "follow"
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("HTTP status: " + response.status);
-        }
-
-        const responseText = await response.text();
-
-        let data;
-
-        try {
-          data = JSON.parse(responseText);
-        } catch {
-          throw new Error(
-            "The API did not return valid JSON:\n" +
-            responseText.slice(0, 1000)
-          );
-        }
-
-        output.textContent =
-          "CONNECTED SUCCESSFULLY\n\n" +
-          "FULL API RESPONSE:\n\n" +
-          JSON.stringify(data, null, 2);
-
-        console.log("Tryzn API response:", data);
-
-      } catch (error) {
-        output.textContent =
-          "CONNECTION FAILED\n\n" +
-          error.message +
-          "\n\nOpen browser Developer Tools (F12) → Console for details.";
-
-        console.error("Tryzn API error:", error);
-
-      } finally {
-        testButton.disabled = false;
+      if (
+        sheetName === "Products" &&
+        sheets.length === 1 &&
+        sheets[0].getLastRow() === 0 &&
+        sheets[0].getLastColumn() === 0
+      ) {
+        sheet = sheets[0];
+        sheet.setName(sheetName);
+      } else {
+        sheet = ss.insertSheet(sheetName);
       }
+
+      createdSheets.push(sheetName);
+    } else {
+      existingSheets.push(sheetName);
+    }
+
+    const headers = TRZ_DATABASE[sheetName];
+
+    // Only add headers to a completely empty sheet.
+    if (
+      sheet.getLastRow() === 0 &&
+      sheet.getLastColumn() === 0
+    ) {
+      sheet.getRange(1, 1, 1, headers.length)
+        .setValues([headers]);
+
+      headersAdded.push(sheetName);
+    }
+
+    // Header formatting.
+    const headerRange = sheet.getRange(
+      1,
+      1,
+      1,
+      headers.length
+    );
+
+    headerRange
+      .setBackground("#1e293b")
+      .setFontColor("#ffffff")
+      .setFontWeight("bold")
+      .setWrap(true)
+      .setVerticalAlignment("middle");
+
+    sheet.setFrozenRows(1);
+    sheet.setRowHeight(1, 36);
+
+    // Set sensible column widths.
+    sheet.autoResizeColumns(1, headers.length);
+
+    for (let col = 1; col <= headers.length; col++) {
+      if (sheet.getColumnWidth(col) < 110) {
+        sheet.setColumnWidth(col, 110);
+      }
+    }
+
+    // Add a filter if one does not exist.
+    if (!sheet.getFilter()) {
+      sheet.getRange(
+        1,
+        1,
+        sheet.getMaxRows(),
+        headers.length
+      ).createFilter();
+    }
+  });
+
+  SpreadsheetApp.flush();
+
+  SpreadsheetApp.getUi().alert(
+    "Tryzn Store database setup completed!\n\n" +
+    "Tabs: " + Object.keys(TRZ_DATABASE).join(", ") + "\n\n" +
+    "New tabs: " +
+    (createdSheets.join(", ") || "None") + "\n" +
+    "Headers added: " +
+    (headersAdded.join(", ") || "None") + "\n\n" +
+    "Existing sheet data was preserved."
+  );
+}
+
+
+/**
+ * Web API entry point.
+ * Currently supports reading the Products sheet only.
+ */
+function doGet(e) {
+  try {
+    const action =
+      e && e.parameter && e.parameter.action
+        ? e.parameter.action
+        : "products";
+
+    if (action !== "products") {
+      return jsonResponse({
+        success: false,
+        error: "Unsupported action."
+      });
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    if (!ss) {
+      throw new Error("Spreadsheet is not available.");
+    }
+
+    const sheet = ss.getSheetByName("Products");
+
+    if (!sheet) {
+      throw new Error('The "Products" tab was not found.');
+    }
+
+    const lastRow = sheet.getLastRow();
+    const lastColumn = sheet.getLastColumn();
+
+    if (lastRow < 1 || lastColumn < 1) {
+      return jsonResponse({
+        success: true,
+        count: 0,
+        products: []
+      });
+    }
+
+    const values = sheet
+      .getRange(1, 1, lastRow, lastColumn)
+      .getValues();
+
+    const headers = values[0].map(function (header) {
+      return String(header).trim();
     });
-  </script>
-</body>
-</html>
+
+    const products = values.slice(1)
+      .filter(function (row) {
+        return row.some(function (cell) {
+          return cell !== "" && cell !== null;
+        });
+      })
+      .map(function (row) {
+        const product = {};
+
+        headers.forEach(function (header, index) {
+          if (!header) {
+            return;
+          }
+
+          const value = row[index];
+
+          product[header] =
+            value instanceof Date
+              ? value.toISOString()
+              : value;
+        });
+
+        return product;
+      });
+
+    return jsonResponse({
+      success: true,
+      count: products.length,
+      products: products
+    });
+
+  } catch (error) {
+    return jsonResponse({
+      success: false,
+      error: String(error.message || error)
+    });
+  }
+}
+
+
+/**
+ * Return a JSON response.
+ */
+function jsonResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+
+/**
+ * Optional diagnostic.
+ * Run manually in the editor to inspect Products sheet headers.
+ */
+function diagnoseTryznProducts() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss && ss.getSheetByName("Products");
+
+  if (!sheet) {
+    Logger.log('ERROR: "Products" sheet not found.');
+    return;
+  }
+
+  Logger.log("Spreadsheet: " + ss.getName());
+  Logger.log("Sheet: " + sheet.getName());
+  Logger.log("Last row: " + sheet.getLastRow());
+  Logger.log("Last column: " + sheet.getLastColumn());
+
+  if (sheet.getLastRow() > 0 && sheet.getLastColumn() > 0) {
+    Logger.log(
+      "Headers: " +
+      JSON.stringify(
+        sheet.getRange(
+          1,
+          1,
+          1,
+          sheet.getLastColumn()
+        ).getDisplayValues()[0]
+      )
+    );
+  }
+}
