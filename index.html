@@ -234,7 +234,7 @@
         <div class="package-heading"><span>PACKAGE 1 OF 1</span><span>Shipped by <b>TRYZN STORE</b></span></div>
         <div id="checkoutPackageItems"></div>
         <div class="checkout-delivery-line"><span>🚚 Delivery or Pickup</span><strong>Home delivery</strong></div>
-        <div class="promotion-row"><input id="checkoutPromoCode" placeholder="Promotion code (optional)" aria-label="Promotion code"><button type="button" id="applyCheckoutPromo">APPLY</button></div>
+        <div class="promotion-row"><input id="checkoutPromoCode" placeholder="Promotion code (optional)" aria-label="Promotion code"><button type="button" id="applyCheckoutPromo">APPLY</button></div><p id="checkoutPromoFeedback" class="checkout-promo-feedback" aria-live="polite"></p>
         <div class="invoice-heading"><strong>Invoice and Contact Info</strong><button type="button" id="editCheckoutInfo">Edit</button></div>
         <div class="checkout-total-lines" id="checkoutTotals"></div>
         <button type="button" class="btn-block btn-dark place-order-button" id="placeFullOrderBtn">Place Order</button>
@@ -608,17 +608,60 @@
               <p>Apply instant discount percentages and sales badges to any product.</p>
             </div>
           </div>
-          <div style="max-width: 520px; background: #FFFFFF; border: 1px solid var(--line); border-radius: var(--radius); padding: 24px;">
-            <div class="form-group">
-              <label for="discProdSelect">Select Product to Discount</label>
-              <select id="discProdSelect"></select>
-            </div>
-            <div class="form-group">
-              <label for="discPercentInput">Discount Percentage (e.g. 25%)</label>
-              <input type="number" id="discPercentInput" placeholder="e.g. 25" min="1" max="90">
-            </div>
-            <button class="btn-primary" id="applyDiscountBtn" style="margin-top: 8px;">Apply Discount Now</button>
+          <div class="discount-admin-grid">
+            <section class="discount-admin-card">
+              <h3>Product Discount Wizard</h3>
+              <p>Find a product by category or search its name, then apply a storefront price discount.</p>
+              <div class="form-group">
+                <label for="discCategoryFilter">1. Choose Category</label>
+                <select id="discCategoryFilter"><option value="">All categories</option></select>
+              </div>
+              <div class="form-group">
+                <label for="discProductSearch">2. Search Product</label>
+                <input type="search" id="discProductSearch" placeholder="Type a product name...">
+              </div>
+              <div class="form-group">
+                <label for="discProdSelect">3. Select Product</label>
+                <select id="discProdSelect"></select>
+              </div>
+              <div class="form-group">
+                <label for="discPercentInput">Discount Percentage (1–90%)</label>
+                <input type="number" id="discPercentInput" placeholder="e.g. 25" min="1" max="90">
+              </div>
+              <button class="btn-primary" id="applyDiscountBtn" style="margin-top: 8px;">Apply Product Discount</button>
+            </section>
+
+            <section class="discount-admin-card">
+              <h3>Create Promo Code</h3>
+              <p>Create multiple codes and optionally limit each code to one product.</p>
+              <div class="form-group">
+                <label for="promoAdminCode">Promo Code</label>
+                <input id="promoAdminCode" type="text" placeholder="e.g. TRYZN10" maxlength="24" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label for="promoAdminPercent">Discount Percentage</label>
+                <input id="promoAdminPercent" type="number" placeholder="e.g. 10" min="1" max="90">
+              </div>
+              <div class="form-group">
+                <label for="promoAdminCategory">Limit to Category (optional)</label>
+                <select id="promoAdminCategory"><option value="">All categories</option></select>
+              </div>
+              <div class="form-group">
+                <label for="promoAdminProductSearch">Search Product (optional)</label>
+                <input id="promoAdminProductSearch" type="search" placeholder="Search a product to target...">
+              </div>
+              <div class="form-group">
+                <label for="promoAdminProduct">Specific Product (optional)</label>
+                <select id="promoAdminProduct"><option value="">All products</option></select>
+              </div>
+              <button class="btn-primary" id="createPromoCodeBtn" style="margin-top: 8px;">Create Promo Code</button>
+            </section>
           </div>
+          <section class="discount-admin-card promo-list-card">
+            <h3>Promo Codes</h3>
+            <p>Codes are saved in this browser and can be used at checkout.</p>
+            <div id="adminPromoCodesList"><p class="muted">No promo codes created yet.</p></div>
+          </section>
         </div>
 
         <!-- 5. Media Tab -->
