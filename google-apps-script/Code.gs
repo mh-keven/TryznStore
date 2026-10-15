@@ -73,18 +73,18 @@ function doPost(e) {
     if (action === "createOrder") return jsonResponse_(createOrder_(payload.order || {}));
     if (action === "upsertCustomer") return jsonResponse_(upsertCustomer_(payload.customer || {}));
 
-    // Admin actions verify Google's ID token and the server-side allowlist on EVERY request.
-    if (action === "adminAuthorize") {
-      const admin = verifyGoogleAdminToken_(payload.credential);
-      logAdminAction_(admin.email, "admin_sign_in", "admin", admin.sub, {method:"google_identity"}, "success");
-      return jsonResponse_({success:true, admin:{email:admin.email, name:admin.name || ""}});
+    // Admin email/password are checked server-side on sign-in and every protected request.
+    if (action === "adminLogin") {
+      const admin = verifyAdminPassword_(payload.email, payload.password);
+      logAdminAction_(admin.email, "admin_sign_in", "admin", admin.email, {method:"email_password"}, "success");
+      return jsonResponse_({success:true, admin:{email:admin.email}});
     }
     if (action === "adminGetOrders") {
-      const admin = verifyGoogleAdminToken_(payload.credential);
+      const admin = verifyAdminPassword_(payload.email, payload.password);
       return jsonResponse_({success:true, orders:readAdminOrders_(), admin_email:admin.email});
     }
     if (action === "adminUpdateOrderStatus") {
-      const admin = verifyGoogleAdminToken_(payload.credential);
+      const admin = verifyAdminPassword_(payload.email, payload.password);
       return jsonResponse_(updateOrderStatus_(admin, payload.order_id, payload.status));
     }
 
@@ -266,51 +266,25 @@ function diagnoseTryznProducts() {
 
 
 /**
- * Admin authentication configuration is stored in Apps Script Project Settings
- * > Script properties, never in public website JavaScript.
- *
- * GOOGLE_CLIENT_ID = the OAuth 2.0 Web client ID used by Google Identity Services
- * ADMIN_EMAILS = comma-separated list of permitted Google account emails
- *
- * NOTE: tokeninfo is used here only for staging/testing. Google documents it as
- * a debugging endpoint, not a production verifier. Do not launch admin writes
- * publicly until this verification is replaced with cryptographic JWT verification
- * using Google's rotating public keys or a trusted auth backend.
+ * Admin credentials live only in Apps Script Project Settings > Script properties.
+ * Required properties: ADMIN_EMAIL and ADMIN_PASSWORD.
+ * The website never contains the admin password in its public source.
  */
-function verifyGoogleAdminToken_(credential) {
-  const token = clean_(credential, 10000);
-  if (!token || token.length < 100) throw new Error("Google sign-in token is missing.");
-
+function verifyAdminPassword_(emailValue, passwordValue) {
   const props = PropertiesService.getScriptProperties();
-  const expectedClientId = clean_(props.getProperty("GOOGLE_CLIENT_ID"), 300);
-  const allowedEmails = String(props.getProperty("ADMIN_EMAILS") || "")
-    .split(",").map(function(email) { return email.trim().toLowerCase(); }).filter(Boolean);
+  const expectedEmail = clean_(props.getProperty("ADMIN_EMAIL"), 160).toLowerCase();
+  const expectedPassword = String(props.getProperty("ADMIN_PASSWORD") || "");
+  const email = clean_(emailValue, 160).toLowerCase();
+  const password = String(passwordValue || "");
 
-  if (!expectedClientId || !allowedEmails.length) {
-    throw new Error("Admin authentication is not configured. Set GOOGLE_CLIENT_ID and ADMIN_EMAILS in Apps Script Script properties.");
+  if (!expectedEmail || !expectedPassword) {
+    throw new Error("Admin login is not configured. Set ADMIN_EMAIL and ADMIN_PASSWORD in Apps Script Script properties.");
   }
-
-  const response = UrlFetchApp.fetch(
-    "https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(token),
-    {method: "get", muteHttpExceptions: true}
-  );
-  if (response.getResponseCode() !== 200) throw new Error("Google sign-in token could not be verified.");
-
-  const claims = JSON.parse(response.getContentText());
-  const issuer = String(claims.iss || "");
-  const expiresAt = Number(claims.exp || 0);
-  const email = String(claims.email || "").trim().toLowerCase();
-
-  if (claims.aud !== expectedClientId) throw new Error("Google sign-in token was issued for a different application.");
-  if (issuer !== "accounts.google.com" && issuer !== "https://accounts.google.com") throw new Error("Google token issuer is invalid.");
-  if (!expiresAt || expiresAt <= Math.floor(Date.now() / 1000)) throw new Error("Google sign-in token has expired.");
-  if (String(claims.email_verified).toLowerCase() !== "true") throw new Error("The Google account email is not verified.");
-  if (!email || allowedEmails.indexOf(email) === -1) {
-    logAdminAction_(email || "unknown", "admin_sign_in_denied", "admin", String(claims.sub || ""), {reason:"not_allowlisted"}, "denied");
-    throw new Error("This Google account is not authorized to access the store admin.");
+  if (!email || !password || email !== expectedEmail || password !== expectedPassword) {
+    logAdminAction_(email || "unknown", "admin_sign_in_denied", "admin", email || "unknown", {}, "denied");
+    throw new Error("Incorrect admin email or password.");
   }
-
-  return {email:email, sub:String(claims.sub || ""), name:clean_(claims.name, 120)};
+  return {email:email};
 }
 
 function readAdminOrders_() {
@@ -382,11 +356,11 @@ function logAdminAction_(email, action, entityType, entityId, details, result) {
 /** Run manually to confirm the required server-side configuration exists. */
 function checkTryznAdminConfiguration() {
   const props = PropertiesService.getScriptProperties();
-  const clientId = props.getProperty("GOOGLE_CLIENT_ID");
-  const emails = props.getProperty("ADMIN_EMAILS");
-  Logger.log("GOOGLE_CLIENT_ID configured: " + Boolean(clientId));
-  Logger.log("ADMIN_EMAILS configured: " + Boolean(emails && emails.trim()));
-  if (!clientId || !emails || !emails.trim()) {
-    throw new Error("Add GOOGLE_CLIENT_ID and ADMIN_EMAILS in Project Settings > Script properties.");
+  const email = props.getProperty("ADMIN_EMAIL");
+  const password = props.getProperty("ADMIN_PASSWORD");
+  Logger.log("ADMIN_EMAIL configured: " + Boolean(email));
+  Logger.log("ADMIN_PASSWORD configured: " + Boolean(password));
+  if (!email || !password) {
+    throw new Error("Add ADMIN_EMAIL and ADMIN_PASSWORD in Project Settings > Script properties.");
   }
 }
