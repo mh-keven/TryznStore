@@ -958,13 +958,6 @@ function handleUnifiedSignIn() {
     return; 
   }
 
-  // Admins must use the separate Google Identity sign-in button.
-  // The server, not this public script, decides who is an authorized admin.
-  if (email.toLowerCase() === 'hshussnain41@gmail.com') {
-    err.textContent = 'For administrator access, use “Admin sign in with Google” below.';
-    return;
-  }
-
   // 2. Strict Customer Authentication
   const found = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
   
