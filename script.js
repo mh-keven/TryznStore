@@ -34,7 +34,7 @@ const CFG = {
 const formatMoney = n => CFG.currency + ' ' + Number(n).toLocaleString('en-PK');
 
 /* Initial Collections State with Dropdown Subcategories */
-let CATEGORIES = storage.get('tryzn_categories', [
+const DEFAULT_CATEGORIES = [
   { name: 'Men', image: 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=600&q=80', count: 'Polos, Chinos & Tees', subcategories: ['Knitted Polos', 'Slim-Fit Chinos', 'Boxy T-Shirts', 'Linen Shirts'] },
   { name: 'Women', image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=600&q=80', count: 'Suits, Kurtis & Totes', subcategories: ['3-Piece Suits', 'Tote Bags', 'Digital Kurtis', 'Hoop Earrings'] },
   { name: 'Footwear', image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=600&q=80', count: 'Monaco Slides & Boots', subcategories: ['Monaco Slides', 'Chelsea Boots', 'Tassel Loafers', 'Cloud Sneakers'] },
@@ -44,6 +44,12 @@ let CATEGORIES = storage.get('tryzn_categories', [
   { name: 'Home', image: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?auto=format&fit=crop&w=600&q=80', count: 'Bedding & Diffusers', subcategories: ['Bed Sheets', 'Aroma Diffusers'] },
   { name: 'Combo Deals', image: 'https://images.unsplash.com/photo-1490114538077-0a7f8cb49891?auto=format&fit=crop&w=600&q=80', count: 'Bundle & Save Extra', subcategories: ['Apparel Bundles', 'Executive Boxes'] }
 ]);
+
+let CATEGORIES = storage.get('tryzn_categories', DEFAULT_CATEGORIES);
+if (!Array.isArray(CATEGORIES) || CATEGORIES.length === 0) {
+  CATEGORIES = DEFAULT_CATEGORIES;
+  storage.set('tryzn_categories', CATEGORIES);
+}
 
 /* 26 Verified Demo Products for Pakistan */
 const DEFAULT_PRODUCTS = [
