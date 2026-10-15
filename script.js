@@ -298,14 +298,149 @@ function renderProductDetail() {
   target.innerHTML = `<div class="product-detail-layout">
     <div class="product-detail-gallery"><div class="product-detail-main-image"><img src="${esc(p.image)}" alt="${esc(p.name)}"></div><div class="product-gallery-caption">${p.badge ? `<span class="detail-badge">${esc(p.badge)}</span>` : ''}<span>Product code: ${esc(p.id.toUpperCase())}</span></div></div>
     <div class="product-detail-info"><div class="detail-category">${esc(p.category)}${p.subcategory ? ' / ' + esc(p.subcategory) : ''}</div><h1>${esc(p.name)}</h1><div class="detail-rating"><span>★★★★★</span> ${Number(p.rating || 4.8).toFixed(1)} <span class="detail-reviews">(${p.reviews || 24} reviews)</span></div><div class="detail-price-row"><strong>${formatMoney(p.price)}</strong>${hasDiscount ? `<del>${formatMoney(p.oldPrice)}</del><span class="detail-discount">${pct}% OFF</span>` : ''}</div><p class="detail-description">${esc(p.description || 'A carefully selected product from Tryzn Store. Designed for everyday use with quality and value in mind.')}</p><div class="detail-stock-note">✓ ${p.stock > 0 ? 'Available to order' : 'Check availability'} <span>·</span> Cash on Delivery across Pakistan</div><div class="detail-benefits"><div><span>🚚</span><div><b>Delivery in 2–7 days</b><small>TCS, Leopards or PostEx</small></div></div><div><span>💵</span><div><b>Cash on Delivery</b><small>Pay when your parcel arrives</small></div></div><div><span>🔄</span><div><b>7-day easy returns</b><small>Contact support for assistance</small></div></div></div><div class="detail-actions"><button type="button" class="btn-primary" data-detail-add="${esc(p.id)}">Add to Cart</button><button type="button" class="btn-dark detail-buy-now" data-buy-now="${esc(p.id)}">Order Now</button></div><button type="button" class="detail-whatsapp" data-wa-order="${esc(p.id)}">Order or ask on WhatsApp</button></div>
-  </div>`;
+  </div>
+  <section class="product-reviews-section" aria-labelledby="customerReviewsHeading">
+    <div class="reviews-section-heading"><div><p class="eyebrow">REAL FEEDBACK</p><h2 id="customerReviewsHeading">Customer Reviews</h2><p>Share your experience with this product, including photos or a video.</p></div><span class="reviews-count-pill" id="productReviewsCount">Loading reviews…</span></div>
+    <div class="reviews-layout">
+      <form class="review-form-card" id="productReviewForm">
+        <h3>Write a review</h3><p class="review-form-intro">Tell other shoppers what you think.</p>
+        <label for="reviewerName">Your name</label><input id="reviewerName" name="reviewerName" maxlength="70" required placeholder="Enter your name" autocomplete="name">
+        <label for="reviewRating">Your rating</label><select id="reviewRating" name="reviewRating" required><option value="5">★★★★★ — Excellent</option><option value="4">★★★★☆ — Good</option><option value="3">★★★☆☆ — Average</option><option value="2">★★☆☆☆ — Poor</option><option value="1">★☆☆☆☆ — Very poor</option></select>
+        <label for="reviewTitle">Review title</label><input id="reviewTitle" name="reviewTitle" maxlength="100" required placeholder="Summarize your experience">
+        <label for="reviewText">Your review</label><textarea id="reviewText" name="reviewText" rows="4" maxlength="1500" required placeholder="What did you like or dislike?"></textarea>
+        <label for="reviewMedia">Add photos or a video (optional)</label><input id="reviewMedia" name="reviewMedia" type="file" accept="image/*,video/*" multiple><small class="review-upload-help">Up to 3 files. Photos up to 3 MB each; videos up to 8 MB each.</small>
+        <p class="review-form-feedback" id="reviewFormFeedback" aria-live="polite"></p>
+        <button class="btn-primary review-submit-btn" type="submit">Submit Review</button>
+      </form>
+      <div class="customer-review-list" id="customerReviewList" aria-live="polite"><div class="reviews-empty-state">Loading customer reviews…</div></div>
+    </div>
+  </section>`;
   renderRecommendations();
+  loadProductReviews(p.id);
   if (recommendationTimer) clearInterval(recommendationTimer);
   recommendationTimer = setInterval(() => {
     if (document.body.classList.contains('product-page-open')) renderRecommendations();
     else { clearInterval(recommendationTimer); recommendationTimer = null; }
   }, 9000);
 }
+
+/* Customer reviews: stored in IndexedDB on this browser. A shared backend is needed for cross-device reviews. */
+let reviewDatabasePromise = null;
+let reviewObjectUrls = [];
+function openReviewDatabase() {
+  if (reviewDatabasePromise) return reviewDatabasePromise;
+  reviewDatabasePromise = new Promise((resolve, reject) => {
+    if (!('indexedDB' in window)) { reject(new Error('This browser does not support local review storage.')); return; }
+    const request = indexedDB.open('tryzn_customer_reviews', 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('reviews')) {
+        const store = db.createObjectStore('reviews', { keyPath: 'id', autoIncrement: true });
+        store.createIndex('productId', 'productId', { unique: false });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('Could not open review storage.'));
+  });
+  return reviewDatabasePromise;
+}
+async function getReviewsForProduct(productId) {
+  const db = await openReviewDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('reviews', 'readonly');
+    const req = tx.objectStore('reviews').index('productId').getAll(String(productId));
+    req.onsuccess = () => resolve((req.result || []).sort((a, b) => b.createdAt - a.createdAt));
+    req.onerror = () => reject(req.error || new Error('Could not load reviews.'));
+  });
+}
+async function saveProductReview(review) {
+  const db = await openReviewDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('reviews', 'readwrite');
+    tx.objectStore('reviews').add(review);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Could not save your review.'));
+    tx.onabort = () => reject(tx.error || new Error('Could not save your review.'));
+  });
+}
+function revokeReviewObjectUrls() {
+  reviewObjectUrls.forEach(url => URL.revokeObjectURL(url));
+  reviewObjectUrls = [];
+}
+async function loadProductReviews(productId) {
+  const list = $('#customerReviewList');
+  const count = $('#productReviewsCount');
+  if (!list || !count) return;
+  revokeReviewObjectUrls();
+  list.innerHTML = '<div class="reviews-empty-state">Loading customer reviews…</div>';
+  try {
+    const reviews = await getReviewsForProduct(productId);
+    if (currentDetailProductId !== productId) return;
+    count.textContent = `${reviews.length} customer ${reviews.length === 1 ? 'review' : 'reviews'}`;
+    if (!reviews.length) {
+      list.innerHTML = '<div class="reviews-empty-state"><span>☆</span><h3>Be the first to review this product</h3><p>Your feedback helps other shoppers make a choice.</p></div>';
+      return;
+    }
+    list.innerHTML = reviews.map(review => {
+      const media = (review.media || []).map(item => {
+        const url = URL.createObjectURL(item.blob);
+        reviewObjectUrls.push(url);
+        return item.type.startsWith('video/')
+          ? `<video class="customer-review-media" src="${url}" controls preload="metadata" aria-label="Customer review video"></video>`
+          : `<img class="customer-review-media" src="${url}" alt="Photo attached to customer review" loading="lazy">`;
+      }).join('');
+      return `<article class="customer-review-card"><div class="customer-review-top"><div class="review-avatar">${esc((review.name || 'C').trim().charAt(0).toUpperCase())}</div><div class="review-author-block"><strong>${esc(review.name)}</strong><span>${new Date(review.createdAt).toLocaleDateString()}</span></div><span class="customer-review-stars" aria-label="${review.rating} out of 5 stars">${'★'.repeat(review.rating)}${'☆'.repeat(5-review.rating)}</span></div><h4>${esc(review.title)}</h4><p class="customer-review-text">${esc(review.text)}</p>${media ? `<div class="customer-review-media-grid">${media}</div>` : ''}</article>`;
+    }).join('');
+  } catch (error) {
+    count.textContent = 'Reviews';
+    list.innerHTML = '<div class="reviews-empty-state"><h3>Reviews could not be loaded</h3><p>Please check your browser storage settings and try again.</p></div>';
+  }
+}
+document.addEventListener('submit', async event => {
+  const form = event.target;
+  if (!form.matches('#productReviewForm')) return;
+  event.preventDefault();
+  const feedback = $('#reviewFormFeedback');
+  const submit = form.querySelector('[type="submit"]');
+  const files = Array.from($('#reviewMedia')?.files || []);
+  const name = ($('#reviewerName')?.value || '').trim();
+  const title = ($('#reviewTitle')?.value || '').trim();
+  const text = ($('#reviewText')?.value || '').trim();
+  const rating = Number($('#reviewRating')?.value || 5);
+  if (!currentDetailProductId || !name || !title || !text) {
+    if (feedback) feedback.textContent = 'Please complete your name, title, and review.';
+    return;
+  }
+  if (files.length > 3) {
+    if (feedback) feedback.textContent = 'Please attach no more than 3 files.';
+    return;
+  }
+  const media = [];
+  for (const file of files) {
+    const isVideo = file.type.startsWith('video/');
+    const isImage = file.type.startsWith('image/');
+    if (!isVideo && !isImage) { if (feedback) feedback.textContent = 'Only image or video files are supported.'; return; }
+    const limit = isVideo ? 8 * 1024 * 1024 : 3 * 1024 * 1024;
+    if (file.size > limit) {
+      if (feedback) feedback.textContent = `${file.name} is too large. Photos must be up to 3 MB and videos up to 8 MB.`;
+      return;
+    }
+    media.push({ name: file.name, type: file.type, blob: file });
+  }
+  if (submit) { submit.disabled = true; submit.textContent = 'Submitting…'; }
+  if (feedback) feedback.textContent = 'Saving your review…';
+  try {
+    await saveProductReview({ productId: String(currentDetailProductId), name, title, text, rating, media, createdAt: Date.now() });
+    form.reset();
+    if (feedback) feedback.textContent = 'Thanks! Your review has been added on this device.';
+    await loadProductReviews(currentDetailProductId);
+    showToast('Your review was submitted.');
+  } catch (error) {
+    if (feedback) feedback.textContent = 'Your review could not be saved. Browser storage may be full or disabled.';
+  } finally {
+    if (submit) { submit.disabled = false; submit.textContent = 'Submit Review'; }
+  }
+});
 
 function renderRecommendations() {
   const target = $('#productRecommendations');
