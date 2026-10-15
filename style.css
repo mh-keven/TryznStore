@@ -1359,3 +1359,34 @@ footer {
   .floating-wa span { display: none; }
   .floating-wa { padding: 14px; }
 }
+
+
+/* Close button for the sign-in / registration modal */
+.auth-box {
+  position: relative;
+}
+.auth-close-btn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #333333;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+.auth-close-btn:hover {
+  background: #F1F1F1;
+}
+.auth-close-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
