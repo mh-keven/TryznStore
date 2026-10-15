@@ -169,7 +169,7 @@
   </div>
 </section>
 
-<section class="wrap">
+<section class="wrap" id="collectionsSection">
   <div class="section-header">
     <div>
       <h2>Shop By Collection</h2>
@@ -198,6 +198,51 @@
   </div>
 
   <div class="products-grid" id="productsGrid"></div>
+</section>
+
+<section id="productPage" class="wrap detail-page" aria-label="Product details">
+  <div class="page-breadcrumb"><button type="button" class="text-link" id="productBackBtn">← Back to shopping</button><span> / Product details</span></div>
+  <div id="productDetailContent"></div>
+  <section class="recommendations-section" aria-label="Recommended products">
+    <div class="section-header"><div><h2>You may also like</h2><p>Discover more picks from Tryzn Store</p></div><span class="recommend-refresh-note">Refreshing picks automatically</span></div>
+    <div class="recommendations-grid" id="productRecommendations"></div>
+  </section>
+</section>
+
+<section id="checkoutPage" class="wrap full-checkout-page" aria-label="Secure order checkout">
+  <div class="checkout-page-top"><button type="button" class="text-link" id="checkoutBackBtn">← Back to cart</button><div class="checkout-secure-label">🔒 Secure checkout · Cash on Delivery</div></div>
+  <div class="checkout-page-heading"><div><p class="eyebrow">TRYZN STORE · PAKISTAN</p><h1>Delivery Information</h1><p>Enter your delivery details. You’ll pay when your parcel arrives.</p></div><div class="checkout-step-pill">1 <span>Delivery</span> — 2 <span>Review order</span></div></div>
+  <div class="checkout-layout">
+    <form class="delivery-form-card" id="fullCheckoutForm" novalidate>
+      <div class="checkout-card-heading"><span class="checkout-step-number">1</span><div><h2>Delivery Information</h2><p>Fields marked * are required.</p></div></div>
+      <div class="checkout-form-grid">
+        <div class="form-group full-span"><label for="checkoutFullName">Full name *</label><input id="checkoutFullName" autocomplete="name" required placeholder="Enter your full name"></div>
+        <div class="form-group full-span"><label for="checkoutPhone">Phone Number *</label><input id="checkoutPhone" type="tel" autocomplete="tel" required placeholder="03XX XXXXXXX"></div>
+        <div class="form-group full-span"><label for="checkoutStreet">Building / House No / Floor / Street *</label><input id="checkoutStreet" autocomplete="address-line1" required placeholder="House no., floor, street name"></div>
+        <div class="form-group full-span"><label for="checkoutLocality">Colony / Suburb / Locality / Landmark *</label><input id="checkoutLocality" autocomplete="address-line2" required placeholder="Area, colony, or nearby landmark"></div>
+        <div class="form-group"><label for="checkoutProvince">Province *</label><select id="checkoutProvince" required><option value="">Please choose your province</option><option>Punjab</option><option>Sindh</option><option>Khyber Pakhtunkhwa</option><option>Balochistan</option><option>Islamabad Capital Territory</option><option>Gilgit-Baltistan</option><option>Azad Jammu & Kashmir</option></select></div>
+        <div class="form-group"><label for="checkoutCity">City *</label><select id="checkoutCity" autocomplete="address-level2" required><option value="">Please choose your city</option></select></div>
+        <div class="form-group full-span"><label for="checkoutArea">Area</label><input id="checkoutArea" placeholder="e.g. Model Town, Gulberg, DHA"></div>
+        <div class="form-group full-span"><label for="checkoutAddress">Additional delivery instructions</label><textarea id="checkoutAddress" rows="2" placeholder="Optional: gate number, directions, or delivery notes"></textarea></div>
+      </div>
+      <div class="address-label-area"><h3>Select a label for effective delivery</h3><div class="address-label-options"><label class="address-label-option"><input type="radio" name="checkoutLabel" value="HOME" checked><span>⌂</span> HOME</label><label class="address-label-option"><input type="radio" name="checkoutLabel" value="OFFICE"><span>▦</span> OFFICE</label></div><button type="button" class="checkout-save-address" id="saveCheckoutAddressBtn">SAVE ADDRESS</button><p class="save-address-note" id="saveAddressNote">You can save these details on this device for next time.</p></div>
+      <div class="form-error" id="fullCheckoutError" role="alert"></div>
+      <div class="checkout-payment-note"><span>💵</span><div><strong>Cash On Delivery</strong><p>Pay the courier when your parcel reaches your doorstep. No advance payment required.</p></div></div>
+    </form>
+    <aside class="checkout-summary-column">
+      <div class="order-summary-card"><div class="checkout-card-heading"><span class="checkout-step-number">2</span><div><h2>Order Summary</h2><p>Review your package before placing the order.</p></div></div>
+        <div class="package-heading"><span>PACKAGE 1 OF 1</span><span>Shipped by <b>TRYZN STORE</b></span></div>
+        <div id="checkoutPackageItems"></div>
+        <div class="checkout-delivery-line"><span>🚚 Delivery or Pickup</span><strong>Home delivery</strong></div>
+        <div class="promotion-row"><input id="checkoutPromoCode" placeholder="Promotion code (optional)" aria-label="Promotion code"><button type="button" id="applyCheckoutPromo">APPLY</button></div>
+        <div class="invoice-heading"><strong>Invoice and Contact Info</strong><button type="button" id="editCheckoutInfo">Edit</button></div>
+        <div class="checkout-total-lines" id="checkoutTotals"></div>
+        <button type="button" class="btn-block btn-dark place-order-button" id="placeFullOrderBtn">Place Order · Cash On Delivery</button>
+        <p class="checkout-terms">By placing your order, you agree to our delivery and return policies.</p>
+        <div class="checkout-assurances"><span>✓ 7-day easy returns</span><span>✓ Nationwide courier delivery</span><span>✓ No online payment required</span></div>
+      </div>
+    </aside>
+  </div>
 </section>
 
 <footer>
