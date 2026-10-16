@@ -1546,11 +1546,15 @@ document.addEventListener('click', async e => {
     if (!isAdminLoggedIn || !adminCredentials) { showToast('Admin session expired. Sign in again.', true); return; }
     const name = window.prompt('Product name:', product.name);
     if (name === null) return;
-    const priceText = window.prompt('Selling price (PKR):', String(product.price));
+    const priceText = window.prompt('Regular selling price (PKR):', String(product.regularPrice || product.price));
     if (priceText === null) return;
     const price = Number(priceText);
     if (name.trim().length < 2 || !Number.isFinite(price) || price <= 0) { showToast('Enter a valid product name and price.', true); return; }
-    const oldPriceText = window.prompt('Old price (enter 0 if none):', String(product.oldPrice || 0));
+    const category = window.prompt('Product category:', product.category || '');
+    if (category === null || !category.trim()) { showToast('Product category is required.', true); return; }
+    const subcategory = window.prompt('Product subcategory (optional):', product.subcategory || '');
+    if (subcategory === null) return;
+    const oldPriceText = window.prompt('Compare-at price (enter 0 if none):', String(product.discountActive ? 0 : product.oldPrice || 0));
     if (oldPriceText === null) return;
     const stockText = window.prompt('Stock quantity:', String(product.stock || 0));
     if (stockText === null) return;
@@ -1564,7 +1568,9 @@ document.addEventListener('click', async e => {
     const oldPrice = Math.max(0, Number(oldPriceText) || 0);
     const stock = Math.max(0, Math.floor(Number(stockText) || 0));
     const updatedProduct = {
-      ...product, name: name.trim(), price, oldPrice, stock, badge: badge.trim(),
+      ...product, name: name.trim(), category: category.trim(), subcategory: subcategory.trim(), regularPrice: price,
+      price: product.discountActive ? Math.round(price * (1 - (product.discountPercent || 0) / 100)) : price,
+      oldPrice: product.discountActive ? price : oldPrice, stock, badge: product.discountActive ? ('Sale ' + product.discountPercent + '% OFF') : badge.trim(),
       image: image.trim() || product.image || '', description: description.trim()
     };
     try {
@@ -1572,7 +1578,7 @@ document.addEventListener('click', async e => {
         action: 'adminSaveProduct', email: adminCredentials.email, password: adminCredentials.password,
         product: {
           product_id: updatedProduct.id, name: updatedProduct.name, category: updatedProduct.category,
-          subcategory: updatedProduct.subcategory || '', price: updatedProduct.price, old_price: updatedProduct.oldPrice,
+          subcategory: updatedProduct.subcategory || '', price: updatedProduct.regularPrice || updatedProduct.price, old_price: updatedProduct.discountActive ? 0 : updatedProduct.oldPrice, discount_percent:updatedProduct.discountPercent || 0, discount_start:updatedProduct.discountStart || '', discount_end:updatedProduct.discountEnd || '',
           rating: updatedProduct.rating || 5, reviews: updatedProduct.reviews || 0, stock: updatedProduct.stock,
           badge: updatedProduct.badge, image: updatedProduct.image, description: updatedProduct.description, active: true
         }
