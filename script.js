@@ -244,22 +244,23 @@ async function loadProductsFromSheets() {
       })
       .filter(p => p.id && p.name && p.price > 0);
 
-    // Don't replace the existing catalogue with an empty result.
+    // An empty sheet is treated as unconfigured only when it has no product rows at all.
+    // If rows exist but all are inactive, show an empty catalogue rather than resurrecting deleted items.
     if (!sheetProducts.length) {
-      console.warn('Google Sheets returned no active products; keeping existing products.');
+      if (Array.isArray(data.products) && data.products.length) {
+        productsList = [];
+        storage.set('tryzn_products', productsList);
+        if (typeof renderProducts === 'function') renderProducts();
+        if (typeof renderHomeFeatured === 'function') renderHomeFeatured();
+      } else {
+        console.warn('Google Sheets Products sheet is empty; keeping demo products until the first product is saved.');
+      }
       return;
     }
 
-    // Merge Sheet products into the existing catalogue instead of replacing it.
-    // This preserves the existing collections/categories while the Sheet is being populated.
-    const productMap = new Map(DEFAULT_PRODUCTS.map(product => [String(product.id), product]));
-    for (const product of sheetProducts) {
-      productMap.set(String(product.id), {
-        ...(productMap.get(String(product.id)) || {}),
-        ...product
-      });
-    }
-    productsList = Array.from(productMap.values());
+    // Once the Products sheet contains active products, it becomes the catalogue source of truth.
+    // Inactive products are not displayed; products not present in the sheet are not silently re-added.
+    productsList = sheetProducts.map(product => ({ ...product, _fromSheets: true }));
     storage.set('tryzn_products', productsList);
 
     // Refresh every storefront view that depends on the product catalogue.
@@ -1477,11 +1478,29 @@ document.addEventListener('click', e => {
   else if (t.dataset.dec) modifyCart(t.dataset.dec, -1);
   else if (t.dataset.del) removeCartItem(t.dataset.del);
   else if (t.dataset.delProd) {
-    productsList = productsList.filter(x => x.id !== t.dataset.delProd);
-    storage.set('tryzn_products', productsList);
-    renderProducts();
-    renderAdmin();
-    showToast('Product deleted.');
+    const product = productsList.find(x => x.id === t.dataset.delProd);
+    if (!product) return;
+    if (!isAdminLoggedIn || !adminCredentials) { showToast('Admin session expired. Sign in again.', true); return; }
+    if (product._fromSheets) {
+      const deleteButton = t;
+      deleteButton.disabled = true;
+      writeSheetsAction({
+        action: 'adminDeleteProduct',
+        email: adminCredentials.email,
+        password: adminCredentials.password,
+        product_id: product.id
+      }).then(result => {
+        if (!result || !result.success) throw new Error('The server did not deactivate this product.');
+        productsList = productsList.filter(x => x.id !== product.id);
+        storage.set('tryzn_products', productsList);
+        renderProducts(); renderAdmin();
+        showToast('Product deactivated in Google Sheets.');
+      }).catch(error => {
+        showToast(error.message || 'Product could not be deleted from Google Sheets.', true);
+      }).finally(() => { deleteButton.disabled = false; });
+    } else {
+      showToast('This demo product is not saved in Google Sheets yet. Add it to the Products sheet before managing it here.', true);
+    }
   }
   else if (t.dataset.msgCust) {
     const o = ordersList.find(x => x.id === t.dataset.msgCust);
@@ -1653,12 +1672,39 @@ document.addEventListener('click', e => {
       $('#newProdError').textContent = 'Please enter product title and valid price.';
       return;
     }
-    const newP = { id: 'p_' + Date.now(), name: title, category: cat, price, oldPrice, stock, badge, image: mediaSource, mediaType, description: desc, rating: 5.0, reviews: 1 };
-    productsList.unshift(newP);
-    storage.set('tryzn_products', productsList);
-    renderProducts();
-    renderAdmin();
-    showToast('Product published to ' + cat + '!');
+    if (!isAdminLoggedIn || !adminCredentials) { showToast('Admin session expired. Sign in again.', true); return; }
+    if (mediaSource.startsWith('data:')) {
+      $('#newProdError').textContent = 'For Google Sheets sync, use a public image URL in the Image URL field. A file selected from your computer is only stored in this browser.';
+      showToast('Use a public image URL so the product works on every device.', true);
+      return;
+    }
+    const newP = { id: 'p_' + Date.now(), name: title, category: cat, subcategory: '', price, oldPrice, stock, badge, image: mediaSource, mediaType, description: desc, rating: 5.0, reviews: 0 };
+    const saveButton = $('#saveNewProductBtn');
+    if (saveButton) saveButton.disabled = true;
+    try {
+      await writeSheetsAction({
+        action: 'adminSaveProduct',
+        email: adminCredentials.email,
+        password: adminCredentials.password,
+        product: {
+          product_id: newP.id, name: newP.name, category: newP.category,
+          subcategory: newP.subcategory, price: newP.price, old_price: newP.oldPrice,
+          rating: newP.rating, reviews: newP.reviews, stock: newP.stock,
+          badge: newP.badge, image: newP.image, description: newP.description, active: true
+        }
+      });
+      newP._fromSheets = true;
+      productsList.unshift(newP);
+      storage.set('tryzn_products', productsList);
+      renderProducts();
+      renderAdmin();
+      showToast('Product saved to Google Sheets and published!');
+    } catch (error) {
+      showToast(error.message || 'Product could not be saved to Google Sheets.', true);
+      return;
+    } finally {
+      if (saveButton) saveButton.disabled = false;
+    }
 
     $('#newProdTitle').value = '';
     $('#newProdPrice').value = '';
@@ -1679,13 +1725,30 @@ document.addEventListener('click', e => {
     if (!pid || isNaN(pct) || pct <= 0 || pct > 90) { showToast('Enter valid percentage (1-90%).', true); return; }
     const p = productsList.find(x => x.id === pid);
     if (p) {
+      const previous = { oldPrice: p.oldPrice, price: p.price, badge: p.badge };
       p.oldPrice = p.oldPrice || p.price;
       p.price = Math.round(p.oldPrice * (1 - pct / 100));
       p.badge = 'Sale ' + pct + '% OFF';
-      storage.set('tryzn_products', productsList);
-      renderProducts();
-      renderAdmin();
-      showToast('Discount applied to ' + p.name + '!');
+      if (!isAdminLoggedIn || !adminCredentials) { Object.assign(p, previous); showToast('Admin session expired. Sign in again.', true); return; }
+      try {
+        await writeSheetsAction({
+          action: 'adminSaveProduct',
+          email: adminCredentials.email,
+          password: adminCredentials.password,
+          product: {
+            product_id: p.id, name: p.name, category: p.category, subcategory: p.subcategory || '',
+            price: p.price, old_price: p.oldPrice, rating: p.rating || 5, reviews: p.reviews || 0,
+            stock: p.stock, badge: p.badge, image: p.image, description: p.description || '', active: true
+          }
+        });
+        p._fromSheets = true;
+        storage.set('tryzn_products', productsList);
+        renderProducts(); renderAdmin();
+        showToast('Discount saved to Google Sheets for ' + p.name + '!');
+      } catch (error) {
+        Object.assign(p, previous);
+        showToast(error.message || 'Discount could not be saved to Google Sheets.', true);
+      }
     }
   }
   else if (t.id === 'saveMediaChangesBtn') {
@@ -1745,10 +1808,25 @@ document.addEventListener('change', e => {
   else if (e.target.dataset.moveCat) {
     const p = productsList.find(x => x.id === e.target.dataset.moveCat);
     if (p) {
+      const previousCategory = p.category;
       p.category = e.target.value;
-      storage.set('tryzn_products', productsList);
-      renderProducts();
-      showToast('Moved "' + p.name + '" to ' + p.category + '!');
+      if (!isAdminLoggedIn || !adminCredentials) { p.category = previousCategory; e.target.value = previousCategory; showToast('Admin session expired. Sign in again.', true); return; }
+      writeSheetsAction({
+        action: 'adminSaveProduct', email: adminCredentials.email, password: adminCredentials.password,
+        product: {
+          product_id: p.id, name: p.name, category: p.category, subcategory: p.subcategory || '',
+          price: p.price, old_price: p.oldPrice || 0, rating: p.rating || 5, reviews: p.reviews || 0,
+          stock: p.stock, badge: p.badge || '', image: p.image || '', description: p.description || '', active: true
+        }
+      }).then(() => {
+        p._fromSheets = true;
+        storage.set('tryzn_products', productsList);
+        renderProducts(); renderAdmin();
+        showToast('Category change saved to Google Sheets.');
+      }).catch(error => {
+        p.category = previousCategory; e.target.value = previousCategory;
+        showToast(error.message || 'Category change could not be saved.', true);
+      });
     }
   }
   else if (e.target.id === 'selectAllProds') {
