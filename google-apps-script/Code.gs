@@ -83,6 +83,18 @@ function doPost(e) {
       const admin = verifyAdminPassword_(payload.email, payload.password);
       return jsonResponse_({success:true, orders:readAdminOrders_(), admin_email:admin.email});
     }
+    if (action === "adminGetProducts") {
+      const admin = verifyAdminPassword_(payload.email, payload.password);
+      return jsonResponse_({success:true, products:readObjects_("Products"), admin_email:admin.email});
+    }
+    if (action === "adminSaveProduct") {
+      const admin = verifyAdminPassword_(payload.email, payload.password);
+      return jsonResponse_(saveProduct_(admin, payload.product || {}));
+    }
+    if (action === "adminDeleteProduct") {
+      const admin = verifyAdminPassword_(payload.email, payload.password);
+      return jsonResponse_(deleteProduct_(admin, payload.product_id));
+    }
     if (action === "adminUpdateOrderStatus") {
       const admin = verifyAdminPassword_(payload.email, payload.password);
       return jsonResponse_(updateOrderStatus_(admin, payload.order_id, payload.status));
@@ -144,6 +156,73 @@ function createOrder_(o) {
       details_json: JSON.stringify({city:city, item_count:items.length}), result: "success"
     });
     return {success:true, order_id:orderId};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function saveProduct_(admin, p) {
+  const productId = clean_(p.product_id || p.id, 80);
+  const name = clean_(p.name, 180);
+  const category = clean_(p.category, 100);
+  const image = clean_(p.image, 1800);
+  const price = Number(p.price);
+  if (!productId || name.length < 2 || !category || !Number.isFinite(price) || price <= 0) {
+    throw new Error("Product ID, name, category, and a valid price are required.");
+  }
+  // Product media must be hosted at a URL; do not store large browser data URLs in Sheets.
+  if (image && !/^https?:\/\//i.test(image)) {
+    throw new Error("Use a public image URL for the product image. Uploaded local files cannot be stored in Google Sheets.");
+  }
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sh = sheet_("Products");
+    const matchRow = findRowByValue_(sh, "product_id", productId);
+    const now = new Date();
+    const row = {
+      product_id: productId,
+      name: name,
+      category: category,
+      subcategory: clean_(p.subcategory, 100),
+      price: price,
+      old_price: Math.max(0, Number(p.old_price != null ? p.old_price : p.oldPrice) || 0),
+      rating: Math.max(0, Math.min(5, Number(p.rating) || 5)),
+      reviews: Math.max(0, Number(p.reviews) || 0),
+      stock: Math.max(0, Math.floor(Number(p.stock) || 0)),
+      badge: clean_(p.badge, 100),
+      image: image,
+      description: clean_(p.description, 2000),
+      active: p.active === false ? false : true,
+      created_at: matchRow ? valueAt_(sh, matchRow, "created_at") : now,
+      updated_at: now
+    };
+    if (matchRow) writeObjectAtRow_("Products", matchRow, row);
+    else appendObject_("Products", row);
+    logAdminAction_(admin.email, matchRow ? "product_updated" : "product_created", "product", productId, {name:name, category:category}, "success");
+    return {success:true, product_id:productId, updated:Boolean(matchRow)};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function deleteProduct_(admin, productIdValue) {
+  const productId = clean_(productIdValue, 80);
+  if (!productId) throw new Error("Product ID is required.");
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sh = sheet_("Products");
+    const row = findRowByValue_(sh, "product_id", productId);
+    if (!row) throw new Error("Product not found in Google Sheets.");
+    const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0].map(function(h) { return String(h).trim(); });
+    const activeCol = headers.indexOf("active") + 1;
+    const updatedCol = headers.indexOf("updated_at") + 1;
+    if (!activeCol) throw new Error('Missing "active" column in Products sheet.');
+    sh.getRange(row, activeCol).setValue(false);
+    if (updatedCol) sh.getRange(row, updatedCol).setValue(new Date());
+    logAdminAction_(admin.email, "product_deactivated", "product", productId, {}, "success");
+    return {success:true, product_id:productId, active:false};
   } finally {
     lock.releaseLock();
   }
