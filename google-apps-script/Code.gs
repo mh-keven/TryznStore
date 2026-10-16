@@ -83,6 +83,10 @@ function doPost(e) {
       const admin = verifyAdminPassword_(payload.email, payload.password);
       return jsonResponse_({success:true, orders:readAdminOrders_(), admin_email:admin.email});
     }
+    if (action === "adminGetCustomers") {
+      const admin = verifyAdminPassword_(payload.email, payload.password);
+      return jsonResponse_({success:true, customers:readAdminCustomers_(), admin_email:admin.email});
+    }
     if (action === "adminGetProducts") {
       const admin = verifyAdminPassword_(payload.email, payload.password);
       return jsonResponse_({success:true, products:readObjects_("Products"), admin_email:admin.email});
@@ -236,6 +240,12 @@ function deleteProduct_(admin, productIdValue) {
   }
 }
 
+
+function readAdminCustomers_() {
+  return readObjects_("Customers").map(function(row) {
+    return { id:String(row.customer_id || ""), created_at:row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at || ""), name:String(row.full_name || ""), email:String(row.email || ""), phone:String(row.phone || ""), city:String(row.default_city || ""), address:String(row.default_address || ""), active:isTrue_(row.active) };
+  }).filter(function(customer) { return customer.id || customer.email; }).reverse();
+}
 
 function savePromoCode_(admin, p) {
   const code = clean_(p.promo_code || p.code, 24).toUpperCase().replace(/\\s+/g, "");
