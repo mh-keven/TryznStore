@@ -231,12 +231,21 @@ async function loadProductsFromSheets() {
           name,
           category,
           subcategory: String(p.subcategory || '').trim(),
-          price: Math.max(0, Number(p.price) || 0),
-          oldPrice: Math.max(0, Number(p.old_price) || 0),
+          ...(() => {
+            const regularPrice=Math.max(0,Number(p.price)||0);
+            const discountPercent=Math.max(0,Math.min(90,Number(p.discount_percent)||0));
+            const discountStart=String(p.discount_start||'').slice(0,10);
+            const discountEnd=String(p.discount_end||'').slice(0,10);
+            const now=new Date(),today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+            const discountActive=discountPercent>0&&discountStart&&discountEnd&&discountStart<=today&&today<=discountEnd;
+            return {regularPrice,discountPercent,discountStart,discountEnd,discountActive,
+              price:discountActive?Math.round(regularPrice*(1-discountPercent/100)):regularPrice,
+              oldPrice:discountActive?regularPrice:Math.max(0,Number(p.old_price)||0),
+              badge:discountActive?'Sale '+discountPercent+'% OFF':String(p.badge||'').trim()};
+          })(),
           rating: Math.max(0, Number(p.rating) || 0),
           reviews: Math.max(0, Number(p.reviews) || 0),
           stock: Math.max(0, Number(p.stock) || 0),
-          badge: String(p.badge || '').trim(),
           // Ignore placeholder text such as "Leave blank" in the image column.
           image: validImage ? rawImage : (categoryFallback?.image || DEFAULT_PRODUCTS[0].image),
           description: String(p.description || '').trim()
