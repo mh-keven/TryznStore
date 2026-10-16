@@ -1501,38 +1501,33 @@ footer {
   .btn-add { font-size: 10px; }
 }
 
-/* Shopify-style announcement bar: show one message at a time on every screen size. */
+/* Announcement bar layout. Visibility is controlled by the .is-active rotator below. */
 .top-notice {
   position: relative;
-  display: block;
-  height: 38px;
-  padding: 0 16px;
-  overflow: hidden;
-  white-space: normal;
-  isolation: isolate;
-}
-.top-notice > span {
-  position: absolute;
-  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  padding: 4px 16px;
-  text-align: center;
-  line-height: 1.3;
-  opacity: 0;
-  visibility: hidden;
-  animation: tryznNoticeRotate 16s infinite;
-  pointer-events: none;
+  min-height: 38px;
+  height: auto;
+  padding: 6px 14px;
+  overflow: hidden;
+  white-space: normal;
 }
-.top-notice > span:nth-child(1) { animation-delay: 0s; }
-.top-notice > span:nth-child(2) { animation-delay: -4s; }
-.top-notice > span:nth-child(3) { animation-delay: -8s; }
-.top-notice > span:nth-child(4) { animation-delay: -12s; }
-@keyframes tryznNoticeRotate {
-  0%, 21% { opacity: 1; visibility: visible; }
-  24%, 100% { opacity: 0; visibility: hidden; }
+.top-notice > span {
+  position: static;
+  inset: auto;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  padding: 2px 8px;
+  text-align: center;
+  line-height: 1.35;
+  opacity: 1;
+  visibility: visible;
+  animation: none;
+  pointer-events: auto;
 }
 
 @media (max-width: 720px) {
