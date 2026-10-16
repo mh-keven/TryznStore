@@ -1016,11 +1016,12 @@ async function handleUnifiedSignIn() {
     try {
       adminResult = await writeSheetsAction({ action:'adminLogin', email, password:pass });
     } catch (adminError) {
-      err.textContent = 'No customer account was found on this device. If you are the store administrator, check your credentials and connection.';
+      // Never expose admin/backend diagnostics in the customer sign-in form.
+      err.textContent = 'We couldn’t sign you in. Please check your email and password, or create an account if you’re new.';
       return;
     }
     if (!adminResult || !adminResult.success || !adminResult.admin) {
-      err.textContent = 'No account found with this email. Please check your details or create an account.';
+      err.textContent = 'We couldn’t find an account with those details. Please check your email and password, or create an account.';
       return;
     }
     adminCredentials = { email, password:pass };
