@@ -2320,3 +2320,15 @@ body.shop-page-open .extra-home-section, body.product-page-open .extra-home-sect
   .final-cta-button { width: 100%; justify-content: space-between; }
   .faq-list summary { font-size: 12px; }
 }
+
+
+/* Checkout select stability: keep the fields aligned and avoid clipped/floating dropdowns. */
+.checkout-page-open #fullCheckoutForm,
+.checkout-page-open .checkout-layout,
+.checkout-page-open .delivery-form-card,
+.checkout-page-open .checkout-form-grid { overflow: visible; }
+.checkout-form-grid .form-group { position: relative; min-width: 0; }
+.checkout-form-grid select { display: block; max-width: 100%; line-height: 1.35; }
+.checkout-form-grid select:focus { position: relative; z-index: 5; }
+.checkout-whatsapp-button { width: 100%; min-height: 46px; margin-top: 10px; border: 1px solid #159447; border-radius: 8px; background: #fff; color: #12843f; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; transition: background .15s ease, color .15s ease; }
+.checkout-whatsapp-button:hover { background: #12843f; color: #fff; }
