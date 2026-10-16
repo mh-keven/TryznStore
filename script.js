@@ -1180,6 +1180,39 @@ function renderPromoCodes() {
   }).join('')}</tbody></table></div>`;
 }
 
+async function refreshAdminProducts() {
+  if (!adminCredentials) throw new Error('Admin credentials are missing.');
+  const data = await writeSheetsAction({action:'adminGetProducts',email:adminCredentials.email,password:adminCredentials.password});
+  if (!data || !data.success || !Array.isArray(data.products)) throw new Error(data && data.error || 'Could not refresh products from Google Sheets.');
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,10);
+  const refreshed = data.products.filter(p => String(p.active).trim().toLowerCase() === 'true').map(p => {
+    const regularPrice = Math.max(0, Number(p.price) || 0);
+    const discountPercent = Math.max(0, Math.min(90, Number(p.discount_percent) || 0));
+    const discountStart = String(p.discount_start || '').slice(0,10);
+    const discountEnd = String(p.discount_end || '').slice(0,10);
+    const discountActive = discountPercent > 0 && !!discountStart && !!discountEnd && discountStart <= today && today <= discountEnd;
+    const category = String(p.category || '').trim();
+    const fallback = DEFAULT_PRODUCTS.find(item => item.category === category);
+    const rawImage = String(p.image || '').trim();
+    return {
+      id:String(p.product_id || '').trim(), name:String(p.name || '').trim(), category,
+      subcategory:String(p.subcategory || '').trim(), regularPrice, discountPercent, discountStart, discountEnd, discountActive,
+      price:discountActive ? Math.round(regularPrice * (1 - discountPercent / 100)) : regularPrice,
+      oldPrice:discountActive ? regularPrice : Math.max(0,Number(p.old_price)||0),
+      rating:Math.max(0,Number(p.rating)||0), reviews:Math.max(0,Number(p.reviews)||0),
+      stock:Math.max(0,Number(p.stock)||0), badge:discountActive ? 'Sale '+discountPercent+'% OFF' : String(p.badge||'').trim(),
+      image:/^https?:\/\//i.test(rawImage) ? rawImage : (fallback?.image || DEFAULT_PRODUCTS[0].image),
+      description:String(p.description||'').trim(), _fromSheets:true
+    };
+  }).filter(p => p.id && p.name && p.price > 0);
+  productsList = refreshed;
+  storage.set('tryzn_products', productsList);
+  if (typeof renderProducts === 'function') renderProducts();
+  if (typeof renderHomeFeatured === 'function') renderHomeFeatured();
+  if (typeof updateCartBadge === 'function') updateCartBadge();
+  return refreshed.length;
+}
+
 async function refreshAdminCustomers() {
   if (!adminCredentials) throw new Error('Admin session is missing. Sign in again.');
   const data = await writeSheetsAction({action:'adminGetCustomers', email:adminCredentials.email, password:adminCredentials.password});
@@ -1256,7 +1289,7 @@ function renderAdmin() {
         </td>
         <td>${p.stock}</td>
         <td style="white-space:nowrap;">
-          <button class="btn-outline" data-edit-prod="${esc(p.id)}" style="padding: 4px 10px; font-size: 11.5px; border-radius: 4px; margin-right:4px;">Edit</button>
+          <button type="button" class="btn-outline" data-edit-prod="${esc(p.id)}" title="Edit all product details" style="padding: 4px 10px; font-size: 11.5px; border-radius: 4px; margin-right:4px;">Edit details</button>
           <button class="btn-outline" data-del-prod="${esc(p.id)}" style="color: var(--danger); border-color: var(--danger); padding: 4px 10px; font-size: 11.5px; border-radius: 4px;">Delete</button>
         </td>
       </tr>
@@ -1343,7 +1376,7 @@ async function openAdminModal() {
   try {
     // Orders and customers are independent reads; run them together to reduce
     // dashboard wait time. A customer-list failure is not an expired login.
-    const results = await Promise.allSettled([refreshAdminOrders(), refreshAdminCustomers()]);
+    const results = await Promise.allSettled([refreshAdminOrders(), refreshAdminCustomers(), refreshAdminProducts()]);
     if (adminCredentials !== credentialsAtStart) return;
     renderAdmin();
     updateCategoryPhotoPreview();
@@ -1355,6 +1388,10 @@ async function openAdminModal() {
     const orderResult = results[0];
     if (orderResult.status === 'rejected') {
       showToast('Admin is signed in, but orders could not be refreshed. Please use the refresh option and try again.', true);
+    }
+    const productResult = results[2];
+    if (productResult.status === 'rejected') {
+      showToast('Could not refresh live products from Google Sheets. Product editing and discounts may be out of date.', true);
     }
   } catch (error) {
     document.body.classList.remove('admin-open');
@@ -1838,7 +1875,9 @@ document.addEventListener('click', async e => {
       const now=new Date(),today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
       p.discountActive=start<=today&&today<=end;p.price=p.discountActive?Math.round(regularPrice*(1-pct/100)):regularPrice;
       p.oldPrice=p.discountActive?regularPrice:0;p.badge=p.discountActive?'Sale '+pct+'% OFF':'';
-      p._fromSheets=true;storage.set('tryzn_products',productsList);renderProducts();renderAdmin();refreshDiscountProductOptions();
+      p._fromSheets=true;storage.set('tryzn_products',productsList);
+      await refreshAdminProducts();
+      renderProducts();renderAdmin();refreshDiscountProductOptions();
       showToast('Scheduled discount saved for '+p.name+'.');
     }catch(error){showToast(error.message||'Discount could not be saved.',true);}
     finally{button.disabled=false;}
@@ -1854,7 +1893,9 @@ document.addEventListener('click', async e => {
           rating:p.rating||5,reviews:p.reviews||0,stock:p.stock,badge:'',image:p.image,description:p.description||'',active:true,
           discount_percent:0,discount_start:'',discount_end:''}});
       p.price=regularPrice;p.regularPrice=regularPrice;p.oldPrice=0;p.discountPercent=0;p.discountStart='';p.discountEnd='';p.discountActive=false;p.badge='';p._fromSheets=true;
-      storage.set('tryzn_products',productsList);renderProducts();renderAdmin();refreshDiscountProductOptions();
+      storage.set('tryzn_products',productsList);
+      await refreshAdminProducts();
+      renderProducts();renderAdmin();refreshDiscountProductOptions();
       showToast('Discount removed from '+p.name+'.');
     }catch(error){showToast(error.message||'Could not remove discount.',true);}
     finally{button.disabled=false;}
