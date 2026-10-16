@@ -45,7 +45,7 @@ function setupTryznDatabase() {
   });
 
   SpreadsheetApp.flush();
-  SpreadsheetApp.getUi().alert("Tryzn Store database tabs checked. Existing data was preserved.");
+  console.log("Tryzn Store database tabs checked. Existing data was preserved.");
 }
 
 function doGet(e) {
