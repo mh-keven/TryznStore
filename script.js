@@ -989,79 +989,53 @@ function updateUserUI() {
 }
 
 async function handleUnifiedSignIn() {
-  const email = ($('#loginEmail').value || '').trim();
+  const email = ($('#loginEmail').value || '').trim().toLowerCase();
   const pass = $('#loginPass').value || '';
   const err = $('#signInError');
   const button = $('#signInSubmitBtn');
-
-  if (!email || !pass) {
-    err.textContent = 'Please enter both your email address and password.';
-    return;
-  }
-
+  if (!email || !pass) { err.textContent = 'Please enter both your email address and password.'; return; }
   err.textContent = '';
   if (button) button.disabled = true;
-
   try {
-    // The normal sign-in form also authenticates the store administrator.
-    let adminResult = null;
-    let adminErrorMessage = '';
-    try {
-      adminResult = await writeSheetsAction({
-        action: 'adminLogin',
-        email: email.toLowerCase(),
-        password: pass
-      });
-    } catch (adminError) {
-      // Preserve the server response so an admin can see configuration or credential errors.
-      adminErrorMessage = adminError && adminError.message ? adminError.message : 'Admin sign-in request failed.';
-    }
-
-    if (adminResult && adminResult.success && adminResult.admin) {
-      adminCredentials = { email: email.toLowerCase(), password: pass };
-      isAdminLoggedIn = true;
-      currentUser = null;
-      storage.set('tryzn_user', null);
-      storage.set('tryzn_is_admin', false);
+    // Customer accounts already registered in this browser authenticate locally.
+    // Do not make every customer wait for the admin Google Apps Script endpoint.
+    const found = registeredUsers.find(u => String(u.email || '').toLowerCase() === email);
+    if (found) {
+      if (found.pass !== pass) { err.textContent = 'Incorrect password. Please verify your credentials and try again.'; return; }
+      currentUser = found;
+      storage.set('tryzn_user', currentUser);
       updateUserUI();
       closeAuth();
-
-      try {
-        await refreshAdminOrders();
-        openAdminModal();
-        showToast('Admin signed in. Orders are connected to Google Sheets.');
-      } catch (adminError) {
-        isAdminLoggedIn = false;
-        adminCredentials = null;
-        updateUserUI();
-        openAuth('signin');
-        err.textContent = adminError.message || 'Admin signed in, but the orders could not be loaded. Please try again.';
-      }
+      showToast('Welcome back, ' + (currentUser.name || 'Customer') + '!');
       return;
     }
 
-    const found = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-
-    if (!found) {
-      err.textContent = adminErrorMessage || 'No account found with this email. Please check your details or create an account.';
+    // Only contact the server if this email is not a known local customer; this
+    // keeps the shared sign-in form compatible with the admin account.
+    let adminResult;
+    try {
+      adminResult = await writeSheetsAction({ action:'adminLogin', email, password:pass });
+    } catch (adminError) {
+      err.textContent = 'No customer account was found on this device. If you are the store administrator, check your credentials and connection.';
       return;
     }
-
-    if (found.pass !== pass) {
-      err.textContent = 'Incorrect password. Please verify your credentials and try again.';
+    if (!adminResult || !adminResult.success || !adminResult.admin) {
+      err.textContent = 'No account found with this email. Please check your details or create an account.';
       return;
     }
-
-    currentUser = found;
-    storage.set('tryzn_user', currentUser);
+    adminCredentials = { email, password:pass };
+    isAdminLoggedIn = true;
+    currentUser = null;
+    storage.set('tryzn_user', null);
+    storage.set('tryzn_is_admin', false);
     updateUserUI();
     closeAuth();
-    showToast('Welcome back, ' + (currentUser.name || 'Customer') + '!');
+    await openAdminModal();
+    showToast('Admin signed in successfully.');
   } finally {
     if (button) button.disabled = false;
   }
 }
-
 async function handleCustomerRegister() {
   const name = ($('#regName').value || '').trim();
   const email = ($('#regEmail').value || '').trim();
@@ -1327,34 +1301,25 @@ async function handleAdminLogin() {
   const password = $('#adminLoginPass').value || '';
   const err = $('#adminLoginError');
   if (err) err.textContent = '';
-  if (!email || !password) {
-    if (err) err.textContent = 'Enter your admin email and password.';
-    return;
-  }
+  if (!email || !password) { if (err) err.textContent = 'Enter your admin email and password.'; return; }
   const button = $('#adminLoginBtn');
   if (button) button.disabled = true;
   try {
-    const result = await writeSheetsAction({action:'adminLogin', email:email, password:password});
+    const result = await writeSheetsAction({action:'adminLogin', email, password});
     if (!result || !result.success || !result.admin) throw new Error('Admin login was not accepted.');
-    adminCredentials = {email:email, password:password};
+    adminCredentials = {email, password};
     isAdminLoggedIn = true;
     currentUser = null;
     storage.set('tryzn_user', null);
     storage.set('tryzn_is_admin', false);
     updateUserUI();
     closeAuth();
-    await refreshAdminOrders();
-    openAdminModal();
-    showToast('Admin signed in. Orders are connected to Google Sheets.');
+    await openAdminModal();
+    showToast('Admin signed in successfully.');
   } catch (error) {
-    adminCredentials = null;
-    isAdminLoggedIn = false;
-    if (err) err.textContent = error.message || 'Admin login failed. Check credentials and Apps Script settings.';
-  } finally {
-    if (button) button.disabled = false;
-  }
+    if (err) err.textContent = error.message || 'Admin login failed. Check your credentials and connection.';
+  } finally { if (button) button.disabled = false; }
 }
-
 async function refreshAdminOrders() {
   if (!adminCredentials) throw new Error('Admin session is missing. Sign in again.');
   const data = await writeSheetsAction({action:'adminGetOrders', email:adminCredentials.email, password:adminCredentials.password});
@@ -1373,18 +1338,27 @@ async function refreshAdminOrders() {
 
 async function openAdminModal() {
   if (!isAdminLoggedIn || !adminCredentials) { openAuth('signin'); return; }
+  const credentialsAtStart = adminCredentials;
+  document.body.classList.add('admin-open');
   try {
-    await refreshAdminOrders();
-    await refreshAdminCustomers();
+    // Orders and customers are independent reads; run them together to reduce
+    // dashboard wait time. A customer-list failure is not an expired login.
+    const results = await Promise.allSettled([refreshAdminOrders(), refreshAdminCustomers()]);
+    if (adminCredentials !== credentialsAtStart) return;
     renderAdmin();
     updateCategoryPhotoPreview();
-    document.body.classList.add('admin-open');
+    const customerResult = results[1];
+    if (customerResult.status === 'rejected') {
+      const tbody = $('#adminCustomersTbody');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--ink-muted);">Customer list is temporarily unavailable. Use Refresh to try again.</td></tr>';
+    }
+    const orderResult = results[0];
+    if (orderResult.status === 'rejected') {
+      showToast('Admin is signed in, but orders could not be refreshed. Please use the refresh option and try again.', true);
+    }
   } catch (error) {
-    isAdminLoggedIn = false;
-    adminCredentials = null;
-    updateUserUI();
-    openAuth('signin');
-    showToast(error.message || 'Admin session could not be verified.', true);
+    document.body.classList.remove('admin-open');
+    showToast(error.message || 'Could not open the admin dashboard.', true);
   }
 }
 function closeAdminModal() { document.body.classList.remove('admin-open'); }
