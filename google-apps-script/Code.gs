@@ -95,6 +95,14 @@ function doPost(e) {
       const admin = verifyAdminPassword_(payload.email, payload.password);
       return jsonResponse_(deleteProduct_(admin, payload.product_id));
     }
+    if (action === "adminSavePromoCode") {
+      const admin = verifyAdminPassword_(payload.email, payload.password);
+      return jsonResponse_(savePromoCode_(admin, payload.promo || {}));
+    }
+    if (action === "adminDeletePromoCode") {
+      const admin = verifyAdminPassword_(payload.email, payload.password);
+      return jsonResponse_(deletePromoCode_(admin, payload.promo_code));
+    }
     if (action === "adminUpdateOrderStatus") {
       const admin = verifyAdminPassword_(payload.email, payload.password);
       return jsonResponse_(updateOrderStatus_(admin, payload.order_id, payload.status));
@@ -226,6 +234,55 @@ function deleteProduct_(admin, productIdValue) {
   } finally {
     lock.releaseLock();
   }
+}
+
+
+function savePromoCode_(admin, p) {
+  const code = clean_(p.promo_code || p.code, 24).toUpperCase().replace(/\\s+/g, "");
+  const type = clean_(p.discount_type || "percentage", 30).toLowerCase();
+  const discount = Number(p.discount_value != null ? p.discount_value : p.percent);
+  if (!/^[A-Z0-9_-]{3,24}$/.test(code)) throw new Error("Promo code must contain 3–24 letters, numbers, hyphens or underscores.");
+  if (type !== "percentage" || !Number.isFinite(discount) || discount < 1 || discount > 90) throw new Error("Only percentage discounts from 1% to 90% are supported.");
+  const categories = Array.isArray(p.applicable_categories) ? p.applicable_categories : (p.category ? [p.category] : []);
+  const productIds = Array.isArray(p.applicable_product_ids) ? p.applicable_product_ids : (p.product_id ? [p.product_id] : []);
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const sh = sheet_("PromoCodes");
+    const matchRow = findRowByValue_(sh, "promo_code", code);
+    const now = new Date();
+    const row = {
+      promo_code: code, discount_type: type, discount_value: discount,
+      min_order: Math.max(0, Number(p.min_order) || 0), max_discount: Math.max(0, Number(p.max_discount) || 0),
+      applicable_categories_json: JSON.stringify(categories.map(v => clean_(v, 100)).filter(Boolean)),
+      applicable_product_ids_json: JSON.stringify(productIds.map(v => clean_(v, 80)).filter(Boolean)),
+      usage_limit: Math.max(0, Math.floor(Number(p.usage_limit) || 0)),
+      used_count: matchRow ? Math.max(0, Number(valueAt_(sh, matchRow, "used_count")) || 0) : Math.max(0, Math.floor(Number(p.used_count) || 0)),
+      starts_at: clean_(p.starts_at, 50), expires_at: clean_(p.expires_at, 50), active: p.active === false ? false : true,
+      created_at: matchRow ? valueAt_(sh, matchRow, "created_at") : now, updated_at: now
+    };
+    if (matchRow) writeObjectAtRow_("PromoCodes", matchRow, row); else appendObject_("PromoCodes", row);
+    logAdminAction_(admin.email, matchRow ? "promo_code_updated" : "promo_code_created", "promo_code", code, {discount_value:discount}, "success");
+    return {success:true, promo_code:code, updated:Boolean(matchRow)};
+  } finally { lock.releaseLock(); }
+}
+
+function deletePromoCode_(admin, codeValue) {
+  const code = clean_(codeValue, 24).toUpperCase();
+  if (!code) throw new Error("Promo code is required.");
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const sh = sheet_("PromoCodes");
+    const row = findRowByValue_(sh, "promo_code", code);
+    if (!row) throw new Error("Promo code was not found in Google Sheets.");
+    const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0].map(h => String(h).trim());
+    const activeCol = headers.indexOf("active") + 1;
+    const updatedCol = headers.indexOf("updated_at") + 1;
+    if (!activeCol) throw new Error('Missing "active" column in PromoCodes sheet.');
+    sh.getRange(row, activeCol).setValue(false);
+    if (updatedCol) sh.getRange(row, updatedCol).setValue(new Date());
+    logAdminAction_(admin.email, "promo_code_deactivated", "promo_code", code, {}, "success");
+    return {success:true, promo_code:code, active:false};
+  } finally { lock.releaseLock(); }
 }
 
 function upsertCustomer_(c) {
