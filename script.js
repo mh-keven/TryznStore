@@ -913,9 +913,7 @@ function handleCheckoutSubmit(mode = 'drawer') {
   closeDrawer();
   document.body.classList.remove('checkout-page-open', 'product-page-open');
   renderAdmin();
-  showToast('Order #' + orderId + ' received! Opening WhatsApp confirmation...');
-  const waMsg = buildWhatsAppMessage(order);
-  setTimeout(() => { window.open('https://wa.me/' + CFG.wa + '?text=' + encodeURIComponent(waMsg), '_blank'); }, 700);
+  showToast('Order #' + orderId + ' received successfully!');
 }
 
 function buildWhatsAppMessage(order) {
@@ -1377,7 +1375,7 @@ function openAuth(tab = 'signin') {
 function closeAuth() { document.body.classList.remove('auth-open'); }
 
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #adminLoginBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, [data-edit-prod], #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
+  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #adminLoginBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, [data-edit-prod], #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, #whatsappFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
   if (!t) return;
 
   if (t.hasAttribute('data-open-shop')) { e.preventDefault(); openShopPage('All'); }
@@ -1405,6 +1403,19 @@ document.addEventListener('click', async e => {
     openDrawer('cart');
   }
   else if (t.id === 'placeFullOrderBtn') handleCheckoutSubmit('full');
+  else if (t.id === 'whatsappFullOrderBtn') {
+    const val = id => ( ($('#' + id) || {}).value || '' ).trim();
+    const items = getCartItems();
+    if (!items.length) { showToast('Your cart is empty. Add a product first.', true); return; }
+    const name = val('checkoutFullName'), phone = val('checkoutPhone'), province = val('checkoutProvince'), city = val('checkoutCity');
+    const street = val('checkoutStreet'), locality = val('checkoutLocality'), area = val('checkoutArea'), notes = val('checkoutAddress');
+    if (name.length < 2 || phone.replace(/\\D/g, '').length < 10 || !province || !city || street.length < 3 || locality.length < 2) {
+      showToast('Please complete your name, phone, province, city and delivery address first.', true); return;
+    }
+    const totals = getTotals();
+    const msg = `*TRYZN STORE — WHATSAPP ORDER*\\nCustomer: ${name}\\nPhone: ${phone}\\nProvince: ${province}\\nCity: ${city}\\nDelivery Address: ${[street, locality, area, notes].filter(Boolean).join(', ')}\\n\\n*Items:*\\n${items.map(i => `• ${i.qty}x ${i.product.name} (${formatMoney(i.product.price)})`).join('\\n')}\\n\\nSubtotal: ${formatMoney(totals.subtotal)}\\nDiscount: ${formatMoney(totals.discount || 0)}\\nDelivery: ${totals.isFree ? 'FREE' : formatMoney(totals.shipping)}\\n*Total COD: ${formatMoney(totals.total)}*\\n\\nPlease confirm my order. Thank you!`;
+    window.open('https://wa.me/' + CFG.wa + '?text=' + encodeURIComponent(msg), '_blank');
+  }
   else if (t.id === 'saveCheckoutAddressBtn') saveCheckoutAddress();
   else if (t.id === 'applyCheckoutPromo') {
     const code = ($('#checkoutPromoCode')?.value || '').trim().toUpperCase();
@@ -1435,16 +1446,35 @@ document.addEventListener('click', async e => {
     if (!Number.isFinite(percent) || percent < 1 || percent > 90) { showToast('Enter a discount between 1% and 90%.', true); return; }
     if (promoCodes.some(c => c.code === code)) { showToast('That promo code already exists.', true); return; }
     const product = productId ? productsList.find(p => p.id === productId) : null;
-    promoCodes.unshift({ code, percent, category: product ? '' : category, productId: product ? product.id : '', createdAt: new Date().toLocaleDateString('en-GB'), active: true });
-    storage.set('tryzn_promo_codes', promoCodes); renderPromoCodes();
-    $('#promoAdminCode').value = ''; $('#promoAdminPercent').value = ''; $('#promoAdminProductSearch').value = ''; $('#promoAdminProduct').value = '';
-    showToast('Promo code ' + code + ' created!');
+    if (!isAdminLoggedIn || !adminCredentials) { showToast('Admin session expired. Sign in again.', true); return; }
+    const saveButton = $('#createPromoCodeBtn');
+    if (saveButton) saveButton.disabled = true;
+    try {
+      await writeSheetsAction({
+        action: 'adminSavePromoCode', email: adminCredentials.email, password: adminCredentials.password,
+        promo: { promo_code: code, discount_type: 'percentage', discount_value: percent, min_order: 0, max_discount: 0,
+          applicable_categories: product ? [] : (category ? [category] : []), applicable_product_ids: product ? [product.id] : [],
+          usage_limit: 0, used_count: 0, active: true }
+      });
+      await loadPromoCodesFromSheets();
+      renderPromoCodes();
+      $('#promoAdminCode').value = ''; $('#promoAdminPercent').value = ''; $('#promoAdminProductSearch').value = ''; $('#promoAdminProduct').value = '';
+      showToast('Promo code ' + code + ' saved to Google Sheets!');
+    } catch (error) {
+      showToast(error.message || 'Promo code could not be saved to Google Sheets.', true);
+    } finally { if (saveButton) saveButton.disabled = false; }
   }
   else if (t.dataset.deletePromo) {
     const code = t.dataset.deletePromo;
-    promoCodes = promoCodes.filter(c => c.code !== code); storage.set('tryzn_promo_codes', promoCodes);
-    if (appliedPromoCode === code) { appliedPromoCode = null; storage.set('tryzn_applied_promo', null); }
-    renderPromoCodes(); showToast('Promo code ' + code + ' deleted.');
+    if (!isAdminLoggedIn || !adminCredentials) { showToast('Admin session expired. Sign in again.', true); return; }
+    t.disabled = true;
+    try {
+      await writeSheetsAction({action:'adminDeletePromoCode', email:adminCredentials.email, password:adminCredentials.password, promo_code:code});
+      promoCodes = promoCodes.filter(c => c.code !== code); storage.set('tryzn_promo_codes', promoCodes);
+      if (appliedPromoCode === code) { appliedPromoCode = null; storage.set('tryzn_applied_promo', null); }
+      renderPromoCodes(); showToast('Promo code ' + code + ' deactivated in Google Sheets.');
+    } catch (error) { showToast(error.message || 'Promo code could not be deleted.', true); }
+    finally { t.disabled = false; }
   }
   else if (t.id === 'editCheckoutInfo') { $('#checkoutFullName')?.focus(); $('#fullCheckoutForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
   else if (t.dataset.sub) {
