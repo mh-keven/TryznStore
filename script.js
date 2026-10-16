@@ -1162,6 +1162,17 @@ function renderAdminCategories() {
   }
 }
 
+function renderProductDiscountList() {
+  const root=$('#productDiscountList');if(!root)return;
+  const list=productsList.filter(p=>Number(p.discountPercent||0)>0&&p.discountStart&&p.discountEnd);
+  if(!list.length){root.innerHTML='<p class="muted">No product discounts configured.</p>';return;}
+  const now=new Date(),today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  root.innerHTML=list.map(p=>{
+    const status=today<p.discountStart?'Scheduled':today>p.discountEnd?'Expired':'Active';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;"><div><b>'+esc(p.name)+'</b><br><small>'+esc(String(p.discountPercent))+'% off · '+esc(p.discountStart)+' to '+esc(p.discountEnd)+' · '+status+'</small></div><button type="button" class="btn-outline" data-remove-discount="'+esc(p.id)+'" style="color:var(--danger);border-color:var(--danger);">Remove discount</button></div>';
+  }).join('');
+}
+
 function refreshDiscountProductOptions() {
   const category = $('#discCategoryFilter')?.value || '';
   const query = ($('#discProductSearch')?.value || '').trim().toLowerCase();
@@ -1172,6 +1183,7 @@ function refreshDiscountProductOptions() {
     select.innerHTML = filtered.map(p => `<option value="${esc(p.id)}">${esc(p.name)} — ${formatMoney(p.price)}</option>`).join('') || '<option value="">No matching products</option>';
     if (filtered.some(p => p.id === current)) select.value = current;
   }
+  renderProductDiscountList();
   const promoCategory = $('#promoAdminCategory')?.value || '';
   const promoQuery = ($('#promoAdminProductSearch')?.value || '').trim().toLowerCase();
   const promoSelect = $('#promoAdminProduct');
@@ -1394,7 +1406,7 @@ function openAuth(tab = 'signin') {
 function closeAuth() { document.body.classList.remove('auth-open'); }
 
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #adminLoginBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, [data-edit-prod], #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, #whatsappFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo, #refreshCustomersBtn');
+  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #adminLoginBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, [data-edit-prod], [data-remove-discount], #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, #whatsappFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo, #refreshCustomersBtn');
   if (!t) return;
 
   if (t.hasAttribute('data-open-shop')) { e.preventDefault(); openShopPage('All'); }
@@ -1830,36 +1842,42 @@ document.addEventListener('click', async e => {
     $('#newProductFormContainer').style.display = 'none';
   }
   else if (t.id === 'applyDiscountBtn') {
-    const pid = $('#discProdSelect').value;
-    const pct = parseInt($('#discPercentInput').value, 10);
-    if (!pid || isNaN(pct) || pct <= 0 || pct > 90) { showToast('Enter valid percentage (1-90%).', true); return; }
-    const p = productsList.find(x => x.id === pid);
-    if (p) {
-      const previous = { oldPrice: p.oldPrice, price: p.price, badge: p.badge };
-      p.oldPrice = p.oldPrice || p.price;
-      p.price = Math.round(p.oldPrice * (1 - pct / 100));
-      p.badge = 'Sale ' + pct + '% OFF';
-      if (!isAdminLoggedIn || !adminCredentials) { Object.assign(p, previous); showToast('Admin session expired. Sign in again.', true); return; }
-      try {
-        await writeSheetsAction({
-          action: 'adminSaveProduct',
-          email: adminCredentials.email,
-          password: adminCredentials.password,
-          product: {
-            product_id: p.id, name: p.name, category: p.category, subcategory: p.subcategory || '',
-            price: p.price, old_price: p.oldPrice, rating: p.rating || 5, reviews: p.reviews || 0,
-            stock: p.stock, badge: p.badge, image: p.image, description: p.description || '', active: true
-          }
-        });
-        p._fromSheets = true;
-        storage.set('tryzn_products', productsList);
-        renderProducts(); renderAdmin();
-        showToast('Discount saved to Google Sheets for ' + p.name + '!');
-      } catch (error) {
-        Object.assign(p, previous);
-        showToast(error.message || 'Discount could not be saved to Google Sheets.', true);
-      }
-    }
+    const pid=$('#discProdSelect').value,pct=Number($('#discPercentInput').value),start=$('#discStartDate').value,end=$('#discEndDate').value;
+    const p=productsList.find(x=>x.id===pid);
+    if(!p||!Number.isInteger(pct)||pct<1||pct>90){showToast('Choose a product and enter a discount from 1% to 90%.',true);return;}
+    if(!start||!end||start>end){showToast('Choose valid start and end dates.',true);return;}
+    if(!isAdminLoggedIn||!adminCredentials){showToast('Admin session expired. Sign in again.',true);return;}
+    const button=$('#applyDiscountBtn');button.disabled=true;
+    try{
+      const regularPrice=Number(p.regularPrice||p.price);
+      await writeSheetsAction({action:'adminSaveProduct',email:adminCredentials.email,password:adminCredentials.password,
+        product:{product_id:p.id,name:p.name,category:p.category,subcategory:p.subcategory||'',price:regularPrice,old_price:0,
+          rating:p.rating||5,reviews:p.reviews||0,stock:p.stock,badge:p.badge||'',image:p.image,description:p.description||'',active:true,
+          discount_percent:pct,discount_start:start,discount_end:end}});
+      p.regularPrice=regularPrice;p.discountPercent=pct;p.discountStart=start;p.discountEnd=end;
+      const now=new Date(),today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+      p.discountActive=start<=today&&today<=end;p.price=p.discountActive?Math.round(regularPrice*(1-pct/100)):regularPrice;
+      p.oldPrice=p.discountActive?regularPrice:0;p.badge=p.discountActive?'Sale '+pct+'% OFF':'';
+      p._fromSheets=true;storage.set('tryzn_products',productsList);renderProducts();renderAdmin();refreshDiscountProductOptions();
+      showToast('Scheduled discount saved for '+p.name+'.');
+    }catch(error){showToast(error.message||'Discount could not be saved.',true);}
+    finally{button.disabled=false;}
+  }
+  else if(t.dataset.removeDiscount){
+    const p=productsList.find(x=>x.id===t.dataset.removeDiscount);if(!p)return;
+    if(!isAdminLoggedIn||!adminCredentials){showToast('Admin session expired. Sign in again.',true);return;}
+    const button=t;button.disabled=true;
+    try{
+      const regularPrice=Number(p.regularPrice||p.oldPrice||p.price);
+      await writeSheetsAction({action:'adminSaveProduct',email:adminCredentials.email,password:adminCredentials.password,
+        product:{product_id:p.id,name:p.name,category:p.category,subcategory:p.subcategory||'',price:regularPrice,old_price:0,
+          rating:p.rating||5,reviews:p.reviews||0,stock:p.stock,badge:'',image:p.image,description:p.description||'',active:true,
+          discount_percent:0,discount_start:'',discount_end:''}});
+      p.price=regularPrice;p.regularPrice=regularPrice;p.oldPrice=0;p.discountPercent=0;p.discountStart='';p.discountEnd='';p.discountActive=false;p.badge='';p._fromSheets=true;
+      storage.set('tryzn_products',productsList);renderProducts();renderAdmin();refreshDiscountProductOptions();
+      showToast('Discount removed from '+p.name+'.');
+    }catch(error){showToast(error.message||'Could not remove discount.',true);}
+    finally{button.disabled=false;}
   }
   else if (t.id === 'saveMediaChangesBtn') {
     const title = $('#editHeroTitle').value.trim();
