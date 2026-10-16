@@ -815,7 +815,10 @@
                 <label for="discPercentInput">Discount Percentage (1–90%)</label>
                 <input type="number" id="discPercentInput" placeholder="e.g. 25" min="1" max="90">
               </div>
-              <button class="btn-primary" id="applyDiscountBtn" style="margin-top: 8px;">Apply Product Discount</button>
+              <div class="form-group"><label for="discStartDate">Discount starts</label><input type="date" id="discStartDate" required></div>
+              <div class="form-group"><label for="discEndDate">Discount ends</label><input type="date" id="discEndDate" required></div>
+              <button class="btn-primary" id="applyDiscountBtn" style="margin-top: 8px;">Apply Scheduled Discount</button>
+              <section class="discount-admin-card" style="margin-top:16px;"><h3>Product Discounts</h3><p>Active and scheduled discounts. Remove a discount at any time.</p><div id="productDiscountList"><p class="muted">No product discounts configured.</p></div></section>
             </section>
 
             <section class="discount-admin-card">
