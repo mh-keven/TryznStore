@@ -23,7 +23,7 @@ const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 /* Configuration for Pakistan Domestic Dropshipping */
 const CFG = {
   // Google Apps Script web app endpoint for products, promos, orders, and customer profiles.
-  api: 'https://script.google.com/macros/s/AKfycbzoJJ-w-pUIg5_RBcl0X_asVmm2fQOsz8Z16jNRCSyKZVPmecvbZtXQ_52QI1kvHlBg/exec',
+  api: 'https://tryzn-api-proxy.hshussnain41.workers.dev',
   wa: '923278081874',
   currency: 'Rs.',
   shippingFee: 200,
