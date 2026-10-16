@@ -1253,7 +1253,8 @@ function renderAdmin() {
           </select>
         </td>
         <td>${p.stock}</td>
-        <td>
+        <td style="white-space:nowrap;">
+          <button class="btn-outline" data-edit-prod="${esc(p.id)}" style="padding: 4px 10px; font-size: 11.5px; border-radius: 4px; margin-right:4px;">Edit</button>
           <button class="btn-outline" data-del-prod="${esc(p.id)}" style="color: var(--danger); border-color: var(--danger); padding: 4px 10px; font-size: 11.5px; border-radius: 4px;">Delete</button>
         </td>
       </tr>
@@ -1376,7 +1377,7 @@ function openAuth(tab = 'signin') {
 function closeAuth() { document.body.classList.remove('auth-open'); }
 
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #adminLoginBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
+  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #adminLoginBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, [data-edit-prod], #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
   if (!t) return;
 
   if (t.hasAttribute('data-open-shop')) { e.preventDefault(); openShopPage('All'); }
@@ -1477,6 +1478,52 @@ document.addEventListener('click', async e => {
   else if (t.dataset.inc) modifyCart(t.dataset.inc, 1);
   else if (t.dataset.dec) modifyCart(t.dataset.dec, -1);
   else if (t.dataset.del) removeCartItem(t.dataset.del);
+  else if (t.dataset.editProd) {
+    const product = productsList.find(x => x.id === t.dataset.editProd);
+    if (!product) return;
+    if (!isAdminLoggedIn || !adminCredentials) { showToast('Admin session expired. Sign in again.', true); return; }
+    const name = window.prompt('Product name:', product.name);
+    if (name === null) return;
+    const priceText = window.prompt('Selling price (PKR):', String(product.price));
+    if (priceText === null) return;
+    const price = Number(priceText);
+    if (name.trim().length < 2 || !Number.isFinite(price) || price <= 0) { showToast('Enter a valid product name and price.', true); return; }
+    const oldPriceText = window.prompt('Old price (enter 0 if none):', String(product.oldPrice || 0));
+    if (oldPriceText === null) return;
+    const stockText = window.prompt('Stock quantity:', String(product.stock || 0));
+    if (stockText === null) return;
+    const badge = window.prompt('Product badge (optional):', product.badge || '');
+    if (badge === null) return;
+    const image = window.prompt('Public image URL (leave blank to keep current image):', product.image || '');
+    if (image === null) return;
+    if (image && !/^https?:\/\//i.test(image.trim())) { showToast('Image must be a public http/https URL.', true); return; }
+    const description = window.prompt('Product description:', product.description || '');
+    if (description === null) return;
+    const oldPrice = Math.max(0, Number(oldPriceText) || 0);
+    const stock = Math.max(0, Math.floor(Number(stockText) || 0));
+    const updatedProduct = {
+      ...product, name: name.trim(), price, oldPrice, stock, badge: badge.trim(),
+      image: image.trim() || product.image || '', description: description.trim()
+    };
+    try {
+      await writeSheetsAction({
+        action: 'adminSaveProduct', email: adminCredentials.email, password: adminCredentials.password,
+        product: {
+          product_id: updatedProduct.id, name: updatedProduct.name, category: updatedProduct.category,
+          subcategory: updatedProduct.subcategory || '', price: updatedProduct.price, old_price: updatedProduct.oldPrice,
+          rating: updatedProduct.rating || 5, reviews: updatedProduct.reviews || 0, stock: updatedProduct.stock,
+          badge: updatedProduct.badge, image: updatedProduct.image, description: updatedProduct.description, active: true
+        }
+      });
+      updatedProduct._fromSheets = true;
+      productsList = productsList.map(p => p.id === updatedProduct.id ? updatedProduct : p);
+      storage.set('tryzn_products', productsList);
+      renderProducts(); renderAdmin();
+      showToast('Product changes saved to Google Sheets.');
+    } catch (error) {
+      showToast(error.message || 'Product could not be updated.', true);
+    }
+  }
   else if (t.dataset.delProd) {
     const product = productsList.find(x => x.id === t.dataset.delProd);
     if (!product) return;
