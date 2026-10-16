@@ -131,14 +131,46 @@ async function readSheetsAction(action) {
 }
 
 async function writeSheetsAction(payload) {
-  if (!CFG.api) return null;
-  const response = await fetch(CFG.api, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
-  });
-  const data = await response.json();
-  if (!response.ok || !data.success) throw new Error((data && data.error) || 'Google Sheets write failed');
+  if (!CFG.api) {
+    throw new Error('API URL is not configured.');
+  }
+
+  let response;
+
+  try {
+    response = await fetch(CFG.api, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    console.error('Store API connection error:', error);
+    throw new Error(
+      'Could not connect to the store API. Check your internet connection.'
+    );
+  }
+
+  const responseText = await response.text();
+  let data;
+
+  try {
+    data = JSON.parse(responseText);
+  } catch (error) {
+    console.error('API returned non-JSON response:', responseText);
+    throw new Error(
+      `API returned an invalid response (HTTP ${response.status}). Check the browser console.`
+    );
+  }
+
+  if (!response.ok || !data.success) {
+    console.error('API error:', data);
+    throw new Error(
+      data.error || `Store API failed (HTTP ${response.status}).`
+    );
+  }
+
   return data;
 }
 
