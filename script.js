@@ -1139,12 +1139,14 @@ function renderAdminCategories() {
 
 function renderProductDiscountList() {
   const root=$('#productDiscountList');if(!root)return;
-  const list=productsList.filter(p=>Number(p.discountPercent||0)>0&&p.discountStart&&p.discountEnd);
-  if(!list.length){root.innerHTML='<p class="muted">No product discounts configured.</p>';return;}
+  const list=productsList.filter(p=>Number(p.discountPercent||0)>0);
+  if(!list.length){root.innerHTML='<p class="muted">No discounts are saved for the products currently loaded. If you just configured one, verify the latest Apps Script deployment and refresh products.</p>';return;}
   const now=new Date(),today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
   root.innerHTML=list.map(p=>{
-    const status=today<p.discountStart?'Scheduled':today>p.discountEnd?'Expired':'Active';
-    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;"><div><b>'+esc(p.name)+'</b><br><small>'+esc(String(p.discountPercent))+'% off · '+esc(p.discountStart)+' to '+esc(p.discountEnd)+' · '+status+'</small></div><button type="button" class="btn-outline" data-remove-discount="'+esc(p.id)+'" style="color:var(--danger);border-color:var(--danger);">Remove discount</button></div>';
+    const start=p.discountStart||'Start date missing',end=p.discountEnd||'End date missing';
+    const status=!p.discountStart||!p.discountEnd?'Needs dates':today<p.discountStart?'Scheduled':today>p.discountEnd?'Expired':'Active';
+    const discounted=p.discountActive?formatMoney(p.price):'Regular price until start date';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;"><div><b>'+esc(p.name)+'</b><br><small>'+esc(String(p.discountPercent))+'% off · '+esc(start)+' to '+esc(end)+' · '+status+'</small><br><small>Price: '+esc(discounted)+'</small></div><button type="button" class="btn-outline" data-remove-discount="'+esc(p.id)+'" style="color:var(--danger);border-color:var(--danger);">Remove discount</button></div>';
   }).join('');
 }
 
@@ -1281,7 +1283,7 @@ function renderAdmin() {
             <img src="${esc(p.image)}" alt="${esc(p.name)}" style="width: 44px; height: 50px; object-fit: cover; border-radius: 4px;">
           `}
         </td>
-        <td><b>${esc(p.name)}</b>${p.badge ? `<br><small class="save-badge" style="font-size: 10px;">${esc(p.badge)}</small>` : ''}</td>
+        <td><b>${esc(p.name)}</b><br><button type="button" class="btn-outline" data-edit-prod="${esc(p.id)}" style="margin-top:6px;padding:5px 10px;font-size:12px;">Edit product</button>${p.badge ? `<br><small class="save-badge" style="font-size: 10px;">${esc(p.badge)}</small>` : ''}</td>
         <td><b>${formatMoney(p.price)}</b></td>
         <td>
           <select data-move-cat="${esc(p.id)}" style="padding: 4px 8px; font-size: 12px; border-radius: 4px; border: 1px solid var(--line); font-weight: 600;">
