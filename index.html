@@ -585,6 +585,10 @@
             <span>Orders & Courier</span>
             <span class="admin-nav-badge" id="sidePendingCount">0</span>
           </button>
+          <button class="admin-nav-item" data-atab="customers">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Customers</span>
+          </button>
           <button class="admin-nav-item" data-atab="categories">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
             <span>Categories & Menus</span>
@@ -644,6 +648,10 @@
         </div>
 
         <!-- 2. Categories Tab -->
+        <div class="admin-tab-pane" id="paneCustomers">
+          <div class="admin-viewport-header"><div><h2>Registered Customers</h2><p>Customer profiles saved in Google Sheets.</p></div><button type="button" class="btn-outline" id="refreshCustomersBtn">Refresh Customers</button></div>
+          <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Customer</th><th>Phone</th><th>City</th><th>Delivery Address</th><th>Registered</th></tr></thead><tbody id="adminCustomersTbody"><tr><td colspan="5" style="text-align:center;padding:24px;">Loading customers…</td></tr></tbody></table></div>
+        </div>
         <div class="admin-tab-pane" id="paneCategories">
           <div class="admin-viewport-header">
             <div>
