@@ -7,7 +7,7 @@
  */
 
 const TRZ_DATABASE = {
-  Products: ["product_id","name","category","subcategory","price","old_price","rating","reviews","stock","badge","image","description","active","created_at","updated_at"],
+  Products: ["product_id","name","category","subcategory","price","old_price","rating","reviews","stock","badge","image","description","active","created_at","updated_at","discount_percent","discount_start","discount_end"],
   Orders: ["order_id","created_at","customer_id","customer_name","phone","email","city","address","items_json","subtotal","discount","shipping_fee","total","payment_method","status","tracking_number","notes","updated_at"],
   Customers: ["customer_id","created_at","full_name","email","phone","default_city","default_address","postal_code","active","updated_at"],
   PromoCodes: ["promo_code","discount_type","discount_value","min_order","max_discount","applicable_categories_json","applicable_product_ids_json","usage_limit","used_count","starts_at","expires_at","active","created_at","updated_at"],
@@ -27,9 +27,13 @@ function setupTryznDatabase() {
       sh.getRange(1, 1, 1, headers.length).setValues([headers]);
     } else {
       // Do not overwrite existing data or reorder existing columns.
-      const existing = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), headers.length)).getDisplayValues()[0];
+      const existing = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), headers.length)).getDisplayValues()[0].map(function(h){return String(h).trim();});
       const existingNonEmpty = existing.filter(String);
       if (!existingNonEmpty.length) sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+      else {
+        const missing = headers.filter(function(header){ return existing.indexOf(header) < 0; });
+        if (missing.length) sh.getRange(1, sh.getLastColumn() + 1, 1, missing.length).setValues([missing]);
+      }
     }
 
     sh.getRange(1, 1, 1, headers.length)
@@ -205,6 +209,9 @@ function saveProduct_(admin, p) {
       badge: clean_(p.badge, 100),
       image: image,
       description: clean_(p.description, 2000),
+      discount_percent: Math.max(0, Math.min(90, Number(p.discount_percent) || 0)),
+      discount_start: clean_(p.discount_start, 20),
+      discount_end: clean_(p.discount_end, 20),
       active: p.active === false ? false : true,
       created_at: matchRow ? valueAt_(sh, matchRow, "created_at") : now,
       updated_at: now
