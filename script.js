@@ -1375,7 +1375,7 @@ function openAuth(tab = 'signin') {
 }
 function closeAuth() { document.body.classList.remove('auth-open'); }
 
-document.addEventListener('click', e => {
+document.addEventListener('click', async e => {
   const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #adminLoginBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
   if (!t) return;
 
@@ -1481,25 +1481,37 @@ document.addEventListener('click', e => {
     const product = productsList.find(x => x.id === t.dataset.delProd);
     if (!product) return;
     if (!isAdminLoggedIn || !adminCredentials) { showToast('Admin session expired. Sign in again.', true); return; }
-    if (product._fromSheets) {
-      const deleteButton = t;
-      deleteButton.disabled = true;
-      writeSheetsAction({
-        action: 'adminDeleteProduct',
-        email: adminCredentials.email,
-        password: adminCredentials.password,
-        product_id: product.id
-      }).then(result => {
-        if (!result || !result.success) throw new Error('The server did not deactivate this product.');
-        productsList = productsList.filter(x => x.id !== product.id);
-        storage.set('tryzn_products', productsList);
-        renderProducts(); renderAdmin();
-        showToast('Product deactivated in Google Sheets.');
-      }).catch(error => {
-        showToast(error.message || 'Product could not be deleted from Google Sheets.', true);
-      }).finally(() => { deleteButton.disabled = false; });
-    } else {
-      showToast('This demo product is not saved in Google Sheets yet. Add it to the Products sheet before managing it here.', true);
+    const deleteButton = t;
+    deleteButton.disabled = true;
+    try {
+      const result = product._fromSheets
+        ? await writeSheetsAction({
+            action: 'adminDeleteProduct',
+            email: adminCredentials.email,
+            password: adminCredentials.password,
+            product_id: product.id
+          })
+        : await writeSheetsAction({
+            action: 'adminSaveProduct',
+            email: adminCredentials.email,
+            password: adminCredentials.password,
+            product: {
+              product_id: product.id, name: product.name, category: product.category,
+              subcategory: product.subcategory || '', price: product.price, old_price: product.oldPrice || 0,
+              rating: product.rating || 5, reviews: product.reviews || 0, stock: product.stock || 0,
+              badge: product.badge || '', image: /^https?:\/\//i.test(product.image || '') ? product.image : '',
+              description: product.description || '', active: false
+            }
+          });
+      if (!result || !result.success) throw new Error('The server did not deactivate this product.');
+      productsList = productsList.filter(x => x.id !== product.id);
+      storage.set('tryzn_products', productsList);
+      renderProducts(); renderAdmin();
+      showToast('Product deactivated in Google Sheets.');
+    } catch (error) {
+      showToast(error.message || 'Product could not be deleted from Google Sheets.', true);
+    } finally {
+      deleteButton.disabled = false;
     }
   }
   else if (t.dataset.msgCust) {
