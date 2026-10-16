@@ -1096,9 +1096,9 @@ async function handleCustomerRegister() {
     storage.set('tryzn_user', currentUser);
     updateUserUI();
     closeAuth();
-    showToast('Account created and customer profile saved to Google Sheets!');
+    showToast('Your account has been created successfully. Welcome to Tryzn Store!');
   } catch (error) {
-    err.textContent = error.message || 'Could not save your customer profile. Please try again.';
+    err.textContent = 'We couldn’t create your account right now. Please check your details and try again.';
   } finally { if (submitButton) submitButton.disabled = false; }
 }
 
