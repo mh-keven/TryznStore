@@ -1053,7 +1053,7 @@ async function handleUnifiedSignIn() {
   }
 }
 
-function handleCustomerRegister() {
+async function handleCustomerRegister() {
   const name = ($('#regName').value || '').trim();
   const email = ($('#regEmail').value || '').trim();
   const pass = ($('#regPass').value || '').trim();
@@ -1076,21 +1076,21 @@ function handleCustomerRegister() {
   }
 
   err.textContent = '';
-  // Passwords stay in this browser only; never send them to Google Sheets.
-  currentUser = { name, email, pass, phone, city, address };
-  registeredUsers.push(currentUser);
-  storage.set('tryzn_registered_users', registeredUsers);
-  storage.set('tryzn_user', currentUser);
-
-  writeSheetsAction({
-    action: 'upsertCustomer',
-    customer: { full_name: name, email, phone, default_city: city, default_address: address, active: true }
-  }).then(() => console.log('Customer profile synced to Google Sheets:', email))
-    .catch(error => console.error('Customer profile remains local; Google Sheets sync failed:', error));
-
-  updateUserUI();
-  closeAuth();
-  showToast('Account successfully created and signed in!');
+  const submitButton = $('#regSubmitBtn');
+  if (submitButton) submitButton.disabled = true;
+  try {
+    await writeSheetsAction({ action:'upsertCustomer', customer:{ full_name:name, email, phone, default_city:city, default_address:address, active:true } });
+    // Passwords stay in this browser only; never send them to Google Sheets.
+    currentUser = { name, email, pass, phone, city, address };
+    registeredUsers.push(currentUser);
+    storage.set('tryzn_registered_users', registeredUsers);
+    storage.set('tryzn_user', currentUser);
+    updateUserUI();
+    closeAuth();
+    showToast('Account created and customer profile saved to Google Sheets!');
+  } catch (error) {
+    err.textContent = error.message || 'Could not save your customer profile. Please try again.';
+  } finally { if (submitButton) submitButton.disabled = false; }
 }
 
 function renderAdminCategories() {
@@ -1185,6 +1185,15 @@ function renderPromoCodes() {
   }).join('')}</tbody></table></div>`;
 }
 
+async function refreshAdminCustomers() {
+  if (!adminCredentials) throw new Error('Admin session is missing. Sign in again.');
+  const data = await writeSheetsAction({action:'adminGetCustomers', email:adminCredentials.email, password:adminCredentials.password});
+  if (!Array.isArray(data.customers)) throw new Error('The server returned invalid customer data.');
+  const tbody = $('#adminCustomersTbody');
+  if (!tbody) return;
+  if (!data.customers.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--ink-muted);">No registered customers yet.</td></tr>'; return; }
+  tbody.innerHTML = data.customers.map(c => '<tr><td><b>' + esc(c.name) + '</b><br><small>' + esc(c.email) + '</small></td><td>' + esc(c.phone) + '</td><td>' + esc(c.city) + '</td><td>' + esc(c.address) + '</td><td>' + esc(c.created_at ? new Date(c.created_at).toLocaleDateString() : '—') + '</td></tr>').join('');
+}
 function renderAdmin() {
   $('#admTotalOrders').textContent = ordersList.length;
   const rev = ordersList.reduce((acc, o) => acc + (o.total || 0), 0);
@@ -1345,6 +1354,7 @@ async function openAdminModal() {
   if (!isAdminLoggedIn || !adminCredentials) { openAuth('signin'); return; }
   try {
     await refreshAdminOrders();
+    await refreshAdminCustomers();
     renderAdmin();
     updateCategoryPhotoPreview();
     document.body.classList.add('admin-open');
@@ -1375,7 +1385,7 @@ function openAuth(tab = 'signin') {
 function closeAuth() { document.body.classList.remove('auth-open'); }
 
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #adminLoginBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, [data-edit-prod], #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, #whatsappFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo');
+  const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #adminLoginBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, [data-edit-prod], #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, #whatsappFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo, #refreshCustomersBtn');
   if (!t) return;
 
   if (t.hasAttribute('data-open-shop')) { e.preventDefault(); openShopPage('All'); }
@@ -1417,6 +1427,7 @@ document.addEventListener('click', async e => {
     window.open('https://wa.me/' + CFG.wa + '?text=' + encodeURIComponent(msg), '_blank');
   }
   else if (t.id === 'saveCheckoutAddressBtn') saveCheckoutAddress();
+  else if (t.id === 'refreshCustomersBtn') refreshAdminCustomers().then(() => showToast('Customer list refreshed.')).catch(error => showToast(error.message || 'Could not refresh customers.', true));
   else if (t.id === 'applyCheckoutPromo') {
     const code = ($('#checkoutPromoCode')?.value || '').trim().toUpperCase();
     const feedback = $('#checkoutPromoFeedback');
@@ -1606,6 +1617,7 @@ document.addEventListener('click', async e => {
     t.classList.add('active');
     const tabName = t.dataset.atab;
     if (tabName === 'orders') $('#paneOrders').classList.add('active');
+    else if (tabName === 'customers') { $('#paneCustomers').classList.add('active'); refreshAdminCustomers().catch(error => showToast(error.message || 'Could not load customers.', true)); }
     else if (tabName === 'categories') $('#paneCategories').classList.add('active');
     else if (tabName === 'products') $('#paneProducts').classList.add('active');
     else if (tabName === 'discounts') $('#paneDiscounts').classList.add('active');
