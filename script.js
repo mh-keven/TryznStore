@@ -1283,7 +1283,7 @@ function renderAdmin() {
             <img src="${esc(p.image)}" alt="${esc(p.name)}" style="width: 44px; height: 50px; object-fit: cover; border-radius: 4px;">
           `}
         </td>
-        <td><b>${esc(p.name)}</b><br><button type="button" class="btn-outline" data-edit-prod="${esc(p.id)}" style="margin-top:6px;padding:5px 10px;font-size:12px;">Edit product</button>${p.badge ? `<br><small class="save-badge" style="font-size: 10px;">${esc(p.badge)}</small>` : ''}</td>
+        <td><b>${esc(p.name)}</b><br><button type="button" class="btn-primary" data-edit-prod="${esc(p.id)}" style="display:inline-flex!important;visibility:visible!important;opacity:1!important;margin-top:6px;padding:5px 10px;font-size:12px;background:#0f9f6e;color:#fff;border:1px solid #0f9f6e;cursor:pointer;">✎ Edit product</button>${p.badge ? `<br><small class="save-badge" style="font-size: 10px;">${esc(p.badge)}</small>` : ''}</td>
         <td><b>${formatMoney(p.price)}</b></td>
         <td>
           <select data-move-cat="${esc(p.id)}" style="padding: 4px 8px; font-size: 12px; border-radius: 4px; border: 1px solid var(--line); font-weight: 600;">
