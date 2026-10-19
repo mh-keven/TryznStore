@@ -1419,6 +1419,53 @@ function openAuth(tab = 'signin') {
 }
 function closeAuth() { document.body.classList.remove('auth-open'); }
 
+
+document.addEventListener('submit', async e => {
+  const form = e.target.closest('[data-product-edit-form]');
+  if (!form) return;
+  e.preventDefault();
+  if (!isAdminLoggedIn || !adminCredentials) { showToast('Admin session expired. Sign in again.', true); return; }
+  const id = form.getAttribute('data-product-edit-form');
+  const original = productsList.find(p => p.id === id);
+  if (!original) { showToast('Product not found. Refresh the admin panel.', true); return; }
+  const fd = new FormData(form);
+  const name = String(fd.get('name') || '').trim();
+  const price = Number(fd.get('price'));
+  const category = String(fd.get('category') || '').trim();
+  const subcategory = String(fd.get('subcategory') || '').trim();
+  const stock = Number(fd.get('stock'));
+  const badgeInput = String(fd.get('badge') || '').trim();
+  const imageInput = String(fd.get('image') || '').trim();
+  const description = String(fd.get('description') || '').trim();
+  if (name.length < 2 || !Number.isFinite(price) || price <= 0 || !category || !Number.isInteger(stock) || stock < 0) {
+    showToast('Check product name, price, category and stock quantity.', true); return;
+  }
+  if (imageInput && !/^https?:\/\//i.test(imageInput)) { showToast('Image must be a public http/https URL.', true); return; }
+  const button = form.querySelector('[data-save-edit-product]');
+  if (button) { button.disabled = true; button.textContent = 'Saving…'; }
+  const updated = {...original,name,regularPrice:price,category,subcategory,stock,image:imageInput || original.image || '',description,
+    price: original.discountActive ? Math.round(price*(1-(original.discountPercent||0)/100)) : price,
+    oldPrice: original.discountActive ? price : Math.max(0,Number(original.oldPrice)||0),
+    badge: original.discountActive ? 'Sale '+original.discountPercent+'% OFF' : badgeInput};
+  try {
+    const result = await writeSheetsAction({action:'adminSaveProduct',email:adminCredentials.email,password:adminCredentials.password,
+      product:{product_id:updated.id,name:updated.name,category:updated.category,subcategory:updated.subcategory,price:updated.regularPrice,
+        old_price:updated.discountActive?0:updated.oldPrice,discount_percent:updated.discountPercent||0,discount_start:updated.discountStart||'',
+        discount_end:updated.discountEnd||'',rating:updated.rating||5,reviews:updated.reviews||0,stock:updated.stock,badge:updated.badge,
+        image:updated.image,description:updated.description,active:true}});
+    if (!result || !result.success) throw new Error(result && result.error || 'The server did not confirm the product save.');
+    updated._fromSheets = true;
+    productsList = productsList.map(p => p.id === updated.id ? updated : p);
+    storage.set('tryzn_products',productsList);
+    form.closest('[data-product-edit-row]')?.remove();
+    renderProducts(); renderAdmin();
+    showToast('Product changes saved to Google Sheets.');
+  } catch (error) {
+    showToast(error.message || 'Product could not be updated.',true);
+    if (button) { button.disabled = false; button.textContent = 'Save Product to Google Sheets'; }
+  }
+});
+
 document.addEventListener('click', async e => {
   const t = e.target.closest('[data-cat], [data-sub], [data-add], [data-product-view], [data-view-add], [data-detail-add], [data-buy-now], [data-wa-order], [data-inc], [data-dec], [data-del], [data-msg-cust], [data-atab], [data-del-prod], [data-del-cat], [data-del-sub], [data-add-sub-cat], #cartBtn, #closeDrawerBtn, #drawerOverlay, #closeModalBtn, #modalOverlay, #openAuthBtn, #authModal, #closeAdminBtn, #heroShopBtn, #heroWhatsAppBtn, #floatingWaBtn, #gotoCheckoutBtn, #directWaCheckoutBtn, #backToCartBtn, #submitOrderBtn, #browseBtn, #footerPortalBtn, #brandHomeBtn, #tabSignInBtn, #tabRegisterBtn, #signInSubmitBtn, #adminLoginBtn, #regSubmitBtn, #userLogoutBtn, #adminLogoutAuthBtn, #adminLogoutBtn, #toggleAddProdFormBtn, #toggleAddCatFormBtn, #saveNewProductBtn, [data-edit-prod], [data-remove-discount], #saveNewCategoryBtn, #bulkDeleteProdsBtn, #applyDiscountBtn, #createPromoCodeBtn, [data-delete-promo], #saveMediaChangesBtn, #openAdminModalFromAuthBtn, #saveCatImgBtn, #productBackBtn, #checkoutBackBtn, #placeFullOrderBtn, #whatsappFullOrderBtn, [data-open-shop], [data-go-home], #saveCheckoutAddressBtn, #applyCheckoutPromo, #editCheckoutInfo, #refreshCustomersBtn');
   if (!t) return;
@@ -1558,53 +1605,38 @@ document.addEventListener('click', async e => {
     const product = productsList.find(x => x.id === t.dataset.editProd);
     if (!product) return;
     if (!isAdminLoggedIn || !adminCredentials) { showToast('Admin session expired. Sign in again.', true); return; }
-    const name = window.prompt('Product name:', product.name);
-    if (name === null) return;
-    const priceText = window.prompt('Regular selling price (PKR):', String(product.regularPrice || product.price));
-    if (priceText === null) return;
-    const price = Number(priceText);
-    if (name.trim().length < 2 || !Number.isFinite(price) || price <= 0) { showToast('Enter a valid product name and price.', true); return; }
-    const category = window.prompt('Product category:', product.category || '');
-    if (category === null || !category.trim()) { showToast('Product category is required.', true); return; }
-    const subcategory = window.prompt('Product subcategory (optional):', product.subcategory || '');
-    if (subcategory === null) return;
-    const oldPriceText = window.prompt('Compare-at price (enter 0 if none):', String(product.discountActive ? 0 : product.oldPrice || 0));
-    if (oldPriceText === null) return;
-    const stockText = window.prompt('Stock quantity:', String(product.stock || 0));
-    if (stockText === null) return;
-    const badge = window.prompt('Product badge (optional):', product.badge || '');
-    if (badge === null) return;
-    const image = window.prompt('Public image URL (leave blank to keep current image):', product.image || '');
-    if (image === null) return;
-    if (image && !/^https?:\/\//i.test(image.trim())) { showToast('Image must be a public http/https URL.', true); return; }
-    const description = window.prompt('Product description:', product.description || '');
-    if (description === null) return;
-    const oldPrice = Math.max(0, Number(oldPriceText) || 0);
-    const stock = Math.max(0, Math.floor(Number(stockText) || 0));
-    const updatedProduct = {
-      ...product, name: name.trim(), category: category.trim(), subcategory: subcategory.trim(), regularPrice: price,
-      price: product.discountActive ? Math.round(price * (1 - (product.discountPercent || 0) / 100)) : price,
-      oldPrice: product.discountActive ? price : oldPrice, stock, badge: product.discountActive ? ('Sale ' + product.discountPercent + '% OFF') : badge.trim(),
-      image: image.trim() || product.image || '', description: description.trim()
-    };
-    try {
-      await writeSheetsAction({
-        action: 'adminSaveProduct', email: adminCredentials.email, password: adminCredentials.password,
-        product: {
-          product_id: updatedProduct.id, name: updatedProduct.name, category: updatedProduct.category,
-          subcategory: updatedProduct.subcategory || '', price: updatedProduct.regularPrice || updatedProduct.price, old_price: updatedProduct.discountActive ? 0 : updatedProduct.oldPrice, discount_percent:updatedProduct.discountPercent || 0, discount_start:updatedProduct.discountStart || '', discount_end:updatedProduct.discountEnd || '',
-          rating: updatedProduct.rating || 5, reviews: updatedProduct.reviews || 0, stock: updatedProduct.stock,
-          badge: updatedProduct.badge, image: updatedProduct.image, description: updatedProduct.description, active: true
-        }
-      });
-      updatedProduct._fromSheets = true;
-      productsList = productsList.map(p => p.id === updatedProduct.id ? updatedProduct : p);
-      storage.set('tryzn_products', productsList);
-      renderProducts(); renderAdmin();
-      showToast('Product changes saved to Google Sheets.');
-    } catch (error) {
-      showToast(error.message || 'Product could not be updated.', true);
-    }
+    const existing = document.querySelector('[data-product-edit-row]');
+    if (existing) existing.remove();
+    const sourceRow = t.closest('tr');
+    if (!sourceRow) return;
+    const editRow = document.createElement('tr');
+    editRow.setAttribute('data-product-edit-row', product.id);
+    editRow.innerHTML = `
+      <td colspan="7" style="padding:18px;background:#f0fdf7;border-top:2px solid #0f9f6e;">
+        <form data-product-edit-form="${esc(product.id)}" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:end;">
+          <h3 style="grid-column:1/-1;margin:0;color:#065f46;font-size:18px;">Edit Product — ${esc(product.name)}</h3>
+          <label style="display:grid;gap:6px;font-size:12px;font-weight:700;">Product name<input name="name" required minlength="2" value="${esc(product.name)}" style="padding:10px;border:1px solid #cbd5e1;border-radius:6px;width:100%;box-sizing:border-box;"></label>
+          <label style="display:grid;gap:6px;font-size:12px;font-weight:700;">Regular price (PKR)<input name="price" type="number" min="1" step="1" required value="${Number(product.regularPrice || product.price)}" style="padding:10px;border:1px solid #cbd5e1;border-radius:6px;width:100%;box-sizing:border-box;"></label>
+          <label style="display:grid;gap:6px;font-size:12px;font-weight:700;">Category<input name="category" required value="${esc(product.category || '')}" style="padding:10px;border:1px solid #cbd5e1;border-radius:6px;width:100%;box-sizing:border-box;"></label>
+          <label style="display:grid;gap:6px;font-size:12px;font-weight:700;">Subcategory<input name="subcategory" value="${esc(product.subcategory || '')}" style="padding:10px;border:1px solid #cbd5e1;border-radius:6px;width:100%;box-sizing:border-box;"></label>
+          <label style="display:grid;gap:6px;font-size:12px;font-weight:700;">Stock quantity<input name="stock" type="number" min="0" step="1" required value="${Number(product.stock || 0)}" style="padding:10px;border:1px solid #cbd5e1;border-radius:6px;width:100%;box-sizing:border-box;"></label>
+          <label style="display:grid;gap:6px;font-size:12px;font-weight:700;">Badge (optional)<input name="badge" value="${esc(product.badge || '')}" style="padding:10px;border:1px solid #cbd5e1;border-radius:6px;width:100%;box-sizing:border-box;"></label>
+          <label style="grid-column:1/-1;display:grid;gap:6px;font-size:12px;font-weight:700;">Public image URL<input name="image" type="url" value="${esc(product.image || '')}" placeholder="https://..." style="padding:10px;border:1px solid #cbd5e1;border-radius:6px;width:100%;box-sizing:border-box;"></label>
+          <label style="grid-column:1/-1;display:grid;gap:6px;font-size:12px;font-weight:700;">Description<textarea name="description" rows="3" style="padding:10px;border:1px solid #cbd5e1;border-radius:6px;width:100%;box-sizing:border-box;">${esc(product.description || '')}</textarea></label>
+          <div style="grid-column:1/-1;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+            <button type="button" class="btn-outline" data-cancel-edit-product style="color:#334155;border-color:#94a3b8;padding:10px 18px;">Cancel</button>
+            <button type="submit" class="btn-primary" data-save-edit-product style="background:#0f9f6e;color:white;padding:10px 22px;">Save Product to Google Sheets</button>
+          </div>
+        </form>
+      </td>`;
+    sourceRow.insertAdjacentElement('afterend', editRow);
+    editRow.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+  else if (t.hasAttribute('data-cancel-edit-product')) {
+    t.closest('[data-product-edit-row]')?.remove();
+  }
+  else if (t.hasAttribute('data-save-edit-product')) {
+    // Form submission is handled by the delegated submit listener below.
   }
   else if (t.dataset.delProd) {
     const product = productsList.find(x => x.id === t.dataset.delProd);
